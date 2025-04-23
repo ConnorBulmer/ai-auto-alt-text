@@ -74,6 +74,13 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 
 ## 📦 Changelog
 
+### 1.10 – 2025-04-24
+- 🛠️ Fixed: bulk update tool was prematurely ending after the first batch  
+- ✅ `post_status = inherit` now included in remaining-image query  
+- ✅ Improved meta-query to detect alt text that is empty **or** whitespace  
+- 🧮 Remaining counter is now accurate across all batches  
+- 🖱 Bulk update button now disables while the process is running and re-enables on completion
+
 ### 1.9 – 2025-04-23
 - ✅ Added setting to include the image file name in the prompt
 - ✅ Updated prompts to include filename context when enabled
