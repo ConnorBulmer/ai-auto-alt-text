@@ -3,7 +3,7 @@
  * Plugin Name: Auto Alt Text Generator
  * Plugin URI:  https://connorbulmer.co.uk
  * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT-4o mini vision model. Provides generation on upload, a manual button in the Media Library, and a bulk update tool for existing images. You can choose the WP image size, image detail quality, provide additional site context, optionally pass the image file name, and enable automatic title generation.
- * Version:     1.9
+ * Version:     1.10
  * Author:      Connor Bulmer
  * Author URI:  https://connorbulmer.co.uk
  * Text Domain: auto-alt-text-generator
