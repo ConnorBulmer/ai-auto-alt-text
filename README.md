@@ -58,7 +58,7 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 | **OpenAI API Key**               | Required to connect to GPT-4o |
 | **Image Size to Send**           | Thumbnail, Medium, Large, or Full |
 | **Image Detail Quality**         | Send ‘low’ or ‘high’ image detail |
-| **Site Context**                 | Optional prompt hint (e.g. your brand voice or industry) |
+| **Site Context**                 | Optional (but recommended)  prompt hint (e.g. about your company/website, your brand voice or industry) |
 | **Send Image File Name**         | Includes file name (e.g. `products-summer.jpg`) in prompt |
 | **Automatically Generate Title** | Create SEO-friendly titles for images |
 
@@ -74,15 +74,57 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 
 ## 📦 Changelog
 
-### 1.9 – April 2025
-- ✅ Added setting to pass image file name into the prompt
-- ✅ Clarified prompt structure and site context behaviour
+### 1.9 – 2025-04-23
+- ✅ Added setting to include the image file name in the prompt
+- ✅ Updated prompts to include filename context when enabled
+- ✅ Improved plugin description and settings clarity
 
-### 1.8 – March 2025
+### 1.8 – 2025-04-22
+- 🔐 Security hardening and internal code review
+- ✅ Sanitised all option inputs with `sanitize_text_field()`
+- ✅ Added nonce verification to all AJAX handlers
+- ✅ Escaped all dynamic content in admin HTML output
+- ⚙️ Refactored settings page for cleaner registration
+- 🛡️ All options now use WordPress Settings API with proper defaults
+
+### 1.7 – 2025-04-21
+- 🆕 Real-time bulk update UI with progress bar and debug text
+- ✅ AJAX response now includes per-image alt text preview
+- 🔄 Bulk update now runs in batches of 5 with 5 second delay
+- 🧠 Title prompt refined: “Output ONLY the title without extra labels”
+
+### 1.6 – 2025-04-19
+- ✅ Full-scan mode: finds all images with missing alt text
+- ⚙️ Bulk processor now uses `sleep()` between chunks
+- 🕒 Added `set_time_limit(0)` for longer runs
+- 💡 Cleaned up AJAX handler logic
+
+### 1.5 – 2025-04-15
+- 🆕 Added “Automatically Generate Image Title” option (on by default)
+- ✨ New `aatg_generate_image_title()` function
+- 🔄 Title generation now integrated into upload and manual triggers
+
+### 1.4 – 2025-04-10
+- 📝 Added “Site Context” field (used in both alt and title prompts)
+- ⚙️ Major settings refactor: API key, image size, detail level, context
+
+### 1.3 – 2025-04-07
+- 🔧 Default image size set to `large`
+- 🖼 Added “Image Detail Quality” dropdown: `high` / `low`
+- 🧩 Parent post title now included as contextual hint
+
+### 1.2 – 2025-04-03
+- 🖱 Added manual “Generate Alt Text” button to Media Library
+- ⚙️ AJAX handler for on-demand generation
+
+### 1.1 – 2025-03-28
+- ⚙️ Settings page created under Settings → Alt Text Generator
+- ✅ OpenAI API key and image size options added
+
+### 1.0 – 2025-03-25
 - 🎉 Initial release
-- Alt text generation on upload
-- Manual and bulk tools
-- Optional image title generation
+- 🧠 Auto-generates alt text on upload using GPT-4o mini
+- ✅ Stores output in `_wp_attachment_image_alt`
 
 ---
 
