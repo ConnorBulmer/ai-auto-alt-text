@@ -586,56 +586,62 @@ function aatg_bulk_update_ajax() {
 	if ( ! current_user_can( 'upload_files' ) ) {
 		wp_send_json_error( 'Unauthorised', 403 );
 	}
-
 	check_ajax_referer( 'aatg_nonce', 'nonce' );
 
-	/* Query for up to 5 images that still need alt text */
-	$args = array(
+	/* ----------------------------------------------------------------
+	 *  Query arguments shared by both “first batch” and “remaining”
+	 * ---------------------------------------------------------------- */
+	$base_args = array(
 		'post_type'      => 'attachment',
 		'post_mime_type' => 'image',
-		'posts_per_page' => 5,
+		'post_status'    => 'inherit',   // ← critical: include normal media
 		'fields'         => 'ids',
 		'meta_query'     => array(
 			'relation' => 'OR',
 
-			// Empty or whitespace-only alt text
-			array(
-				'key'     => '_wp_attachment_image_alt',
-				'value'   => '^\s*$',
-				'compare' => 'REGEXP',
-			),
-
-			// Alt text key not present at all
+			// a) meta key missing completely
 			array(
 				'key'     => '_wp_attachment_image_alt',
 				'value'   => '',
 				'compare' => 'NOT EXISTS',
 			),
+
+			// b) key exists but value exactly empty
+			array(
+				'key'     => '_wp_attachment_image_alt',
+				'value'   => '',
+				'compare' => '=',
+			),
+
+			// c) key exists but value is only whitespace
+			array(
+				'key'     => '_wp_attachment_image_alt',
+				'value'   => '^[[:space:]]+$',
+				'compare' => 'REGEXP',
+			),
 		),
 	);
 
-	$ids       = get_posts( $args );
-	$processed = 0;
+	/* ---------- 1. Fetch up to five IDs -------------------- */
+	$batch_ids = get_posts( array_merge( $base_args, array(
+		'posts_per_page' => 5,
+	) ) );
 
-	if ( $ids ) {
-		foreach ( $ids as $att_id ) {
-			aatg_generate_text_and_title( $att_id );
-			$processed++;
-		}
+	$processed = 0;
+	foreach ( $batch_ids as $att_id ) {
+		aatg_generate_text_and_title( $att_id );
+		$processed++;
 	}
 
-	/* How many still remain? */
-	$remaining_q = new WP_Query( array_merge(
-		$args,
-		array(
-			'posts_per_page' => 1,
-			'fields'         => 'ids',
-			'no_found_rows'  => false, // let WP calc found_posts
-		)
-	) );
+	/* ---------- 2. Count what still remains ---------------- */
+	$remaining_q = new WP_Query( array_merge( $base_args, array(
+		'posts_per_page' => 1,     // we only need the count, not the rows
+		'no_found_rows'  => false, // let WP calculate found_posts
+	) ) );
 	$remaining = (int) $remaining_q->found_posts;
 	wp_reset_postdata();
 
+	/* ---------- 3. Respond to browser ---------------------- */
 	wp_send_json_success( array(
 		'processed' => $processed,
 		'remaining' => $remaining,
