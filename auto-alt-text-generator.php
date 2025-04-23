@@ -528,7 +528,7 @@ function aatg_enqueue_bulk_script() {
 			'aatg-bulk-script',
 			plugin_dir_url( __FILE__ ) . 'aatg-bulk.js',
 			array( 'jquery' ),
-			'1.0',
+			'1.2',           // bump to clear browser cache
 			true
 		);
 
@@ -582,46 +582,58 @@ add_action( 'wp_ajax_aatg_generate_alt_text_ajax', 'aatg_generate_alt_text_ajax'
  * Five images per batch.
  */
 function aatg_bulk_update_ajax() {
-    
-    if ( ! current_user_can( 'upload_files' ) ) {
+
+	if ( ! current_user_can( 'upload_files' ) ) {
 		wp_send_json_error( 'Unauthorised', 403 );
 	}
 
 	check_ajax_referer( 'aatg_nonce', 'nonce' );
 
+	/* Query for up to 5 images that still need alt text */
 	$args = array(
 		'post_type'      => 'attachment',
 		'post_mime_type' => 'image',
 		'posts_per_page' => 5,
+		'fields'         => 'ids',
 		'meta_query'     => array(
 			'relation' => 'OR',
+
+			// Empty or whitespace-only alt text
+			array(
+				'key'     => '_wp_attachment_image_alt',
+				'value'   => '^\s*$',
+				'compare' => 'REGEXP',
+			),
+
+			// Alt text key not present at all
 			array(
 				'key'     => '_wp_attachment_image_alt',
 				'value'   => '',
-				'compare' => '=',
-			),
-			array(
-				'key'     => '_wp_attachment_image_alt',
 				'compare' => 'NOT EXISTS',
 			),
 		),
 	);
 
-	$query     = new WP_Query( $args );
+	$ids       = get_posts( $args );
 	$processed = 0;
 
-	if ( $query->have_posts() ) {
-		while ( $query->have_posts() ) {
-			$query->the_post();
-			aatg_generate_text_and_title( get_the_ID() );
+	if ( $ids ) {
+		foreach ( $ids as $att_id ) {
+			aatg_generate_text_and_title( $att_id );
 			$processed++;
 		}
-		wp_reset_postdata();
 	}
 
-	/* check if anything remains */
-	$remaining_q = new WP_Query( array_merge( $args, array( 'posts_per_page' => 1 ) ) );
-	$remaining   = (int) $remaining_q->found_posts;
+	/* How many still remain? */
+	$remaining_q = new WP_Query( array_merge(
+		$args,
+		array(
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'no_found_rows'  => false, // let WP calc found_posts
+		)
+	) );
+	$remaining = (int) $remaining_q->found_posts;
 	wp_reset_postdata();
 
 	wp_send_json_success( array(
