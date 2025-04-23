@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Auto Alt Text Generator
  * Plugin URI:  https://connorbulmer.co.uk
- * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT‑4o mini vision model. Provides generation on upload, a manual button in the Media Library, and a bulk update tool for existing images. You can choose the WP image size, image detail quality, provide additional site context, and enable automatic title generation.
- * Version:     1.8
+ * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT-4o mini vision model. Provides generation on upload, a manual button in the Media Library, and a bulk update tool for existing images. You can choose the WP image size, image detail quality, provide additional site context, optionally pass the image file name, and enable automatic title generation.
+ * Version:     1.9
  * Author:      Connor Bulmer
  * Author URI:  https://connorbulmer.co.uk
  * Text Domain: auto-alt-text-generator
@@ -32,7 +32,7 @@ function aatg_register_settings() {
 add_action( 'admin_menu', 'aatg_register_settings' );
 
 /**
- * Add the bulk‑update page under ‘Tools’.
+ * Add the bulk-update page under ‘Tools’.
  */
 function aatg_register_bulk_page() {
 	add_management_page(
@@ -81,6 +81,13 @@ function aatg_register_settings_init() {
 		'default'           => 'on',
 	) );
 
+	/* ---------- NEW: “send file name” option ---------- */
+	register_setting( 'aatg_options_group', 'aatg_send_filename', array(
+		'type'              => 'string',
+		'sanitize_callback' => 'sanitize_text_field',
+		'default'           => 'off',
+	) );
+
 	add_settings_section(
 		'aatg_settings_section',
 		__( 'Alt Text Generator Settings', 'auto-alt-text-generator' ),
@@ -127,6 +134,15 @@ function aatg_register_settings_init() {
 		'aatg-settings',
 		'aatg_settings_section'
 	);
+
+	/* ---------- NEW field ---------- */
+	add_settings_field(
+		'aatg_send_filename',
+		__( 'Send Image File Name to OpenAI', 'auto-alt-text-generator' ),
+		'aatg_send_filename_render',
+		'aatg-settings',
+		'aatg_settings_section'
+	);
 }
 add_action( 'admin_init', 'aatg_register_settings_init' );
 
@@ -134,7 +150,7 @@ add_action( 'admin_init', 'aatg_register_settings_init' );
  * Settings–section description.
  */
 function aatg_section_callback() {
-	echo '<p>' . esc_html__( 'Enter your API key, choose the image size, select the image detail quality, provide optional site context, and choose whether to automatically generate an image title.', 'auto-alt-text-generator' ) . '</p>';
+	echo '<p>' . esc_html__( 'Enter your API key, choose the image size, select the image detail quality, decide whether to send the image file name for extra context, provide optional site context, and choose whether to automatically generate an image title.', 'auto-alt-text-generator' ) . '</p>';
 }
 
 /* ---------- individual field render callbacks ---------- */
@@ -197,6 +213,14 @@ function aatg_auto_title_render() {
 		 esc_html__( 'Enable automatic image title generation.', 'auto-alt-text-generator' );
 }
 
+/* ---------- NEW render callback ---------- */
+function aatg_send_filename_render() {
+	$send = get_option( 'aatg_send_filename', 'off' );
+	echo '<input type="checkbox" id="aatg_send_filename" name="aatg_send_filename" value="on" ' .
+	     checked( $send, 'on', false ) . ' /> ' .
+	     esc_html__( 'Pass the image’s file name (e.g. “man-on-a-horse.jpg”) to OpenAI for extra context.', 'auto-alt-text-generator' );
+}
+
 /* ---------- page renderers ---------- */
 
 function aatg_render_settings_page() { ?>
@@ -229,6 +253,24 @@ function aatg_render_bulk_page() { ?>
 /* =============================================================================
    ALT TEXT AND TITLE GENERATION
 ============================================================================= */
+
+/**
+ * If the “send file name” option is on, return “Image file name: xyz.jpg. ”
+ * otherwise return an empty string.
+ */
+function aatg_file_name_context( $post_ID ) {
+	if ( get_option( 'aatg_send_filename', 'off' ) !== 'on' ) {
+		return '';
+	}
+
+	$path = get_attached_file( $post_ID );
+	if ( ! $path ) {
+		return '';
+	}
+
+	$filename = wp_basename( $path );
+	return "Image file name: {$filename}. ";
+}
 
 /**
  * Generate alt text for an image.
@@ -267,7 +309,9 @@ function aatg_generate_alt_text( $post_ID ) {
 		$context .= "Site context: {$site_context}. ";
 	}
 
-	$base_prompt = 'Please provide a concise, context‑aware alt‑text description for the following image. Focus on key visual elements such as primary objects, colours and layout, avoid phrases like "image of", use clear language for screen readers, and keep it under 140 characters:';
+	$context .= aatg_file_name_context( $post_ID ); // ← NEW line
+
+	$base_prompt = 'Please provide a concise, context-aware alt-text description for the following image. Focus on key visual elements such as primary objects, colours and layout, avoid phrases like "image of", use clear language for screen readers, and keep it under 140 characters:';
 	$full_prompt = $context . $base_prompt;
 
 	$payload = array(
@@ -338,7 +382,7 @@ function aatg_generate_image_title( $post_ID ) {
 		return;
 	}
 
-	/* build context (parent title + site context) */
+	/* build context (parent title + site context + filename) */
 	$parts = array();
 
 	$parent_id = get_post_field( 'post_parent', $post_ID );
@@ -354,9 +398,11 @@ function aatg_generate_image_title( $post_ID ) {
 		$parts[] = "Site context: {$site_context}.";
 	}
 
+	$parts[] = aatg_file_name_context( $post_ID ); // ← NEW line
+
 	$context = implode( ' ', $parts );
 
-	$title_prompt = "{$context} Please provide a concise, SEO‑friendly image title for the following image. Output only the title in plain text. Summarise the image in about 50–70 characters, focusing on its key subject and context:";
+	$title_prompt = "{$context} Please provide a concise, SEO-friendly image title for the following image. Output only the title in plain text. Summarise the image in about 50–70 characters, focusing on its key subject and context:";
 
 	$payload = array(
 		'model'    => 'gpt-4o-mini',
@@ -399,8 +445,6 @@ function aatg_generate_image_title( $post_ID ) {
 	$data = json_decode( $body, true );
 	if ( ! empty( $data['choices'][0]['message']['content'] ) ) {
 		$title_text = sanitize_text_field( $data['choices'][0]['message']['content'] );
-
-		/* no length trimming – rely on the prompt’s guidance */
 
 		wp_update_post( array(
 			'ID'         => $post_ID,
