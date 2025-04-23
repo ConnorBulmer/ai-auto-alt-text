@@ -9,8 +9,8 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 **Version:** 1.9  
 **Tested up to:** WordPress 6.5  
 **Requires at least:** WordPress 5.5  
-**License:** GPL v2 or later  
-**Tags:** alt text, accessibility, SEO, image optimisation, GPT-4o, media
+**License:** GPL v3 or later  
+**Tags:** alt text, accessibility, SEO, image optimisation, GPT-4o, media, AI alt text
 
 ---
 
