@@ -1,54 +1,84 @@
-jQuery(document).ready(function($) {
-    var total = null;
-    var completed = 0;
-    
-    $('#aatg-bulk-start').on('click', function() {
-        $('#aatg-bulk-status').hide();
-        $('#aatg-bulk-progress-container').show();
-        $('#aatg-bulk-progress').val(0);
-        $('#aatg-bulk-progress-text').html('Initialising…');
-        processBatch();
-    });
-    
-    function processBatch() {
-        $.ajax({
-            url: aatg_bulk_ajax.ajax_url,
-            method: 'POST',
-            data: {
-                action: 'aatg_bulk_update',
-                nonce: aatg_bulk_ajax.nonce
-            },
-            success: function(response) {
-                if (response.success) {
-                    var processed = response.data.processed;
-                    var remaining = response.data.remaining;
-                    
-                    // On first batch, set total = processed + remaining
-                    if (total === null) {
-                        total = processed + remaining;
-                        $('#aatg-bulk-progress').attr('max', total);
-                    }
-                    
-                    completed += processed;
-                    
-                    // Update progress bar & text
-                    $('#aatg-bulk-progress').val(completed);
-                    $('#aatg-bulk-progress-text').html(
-                        completed + ' images optimised, ' + remaining + ' remaining.'
-                    );
-                    
-                    if (remaining > 0) {
-                        setTimeout(processBatch, 5000);
-                    } else {
-                        $('#aatg-bulk-progress-text').append('<br />Bulk update complete.');
-                    }
-                } else {
-                    $('#aatg-bulk-progress-text').html('Error: ' + response.data);
-                }
-            },
-            error: function(xhr, status, error) {
-                $('#aatg-bulk-progress-text').html('AJAX error: ' + error);
-            }
-        });
-    }
-});
+/* global aatg_bulk_ajax */
+
+jQuery( function ( $ ) {
+
+	let total     = null;
+	let completed = 0;
+	let running   = false;
+
+	const $btn       = $( '#aatg-bulk-start' );
+	const $container = $( '#aatg-bulk-progress-container' );
+	const $bar       = $( '#aatg-bulk-progress' );
+	const $text      = $( '#aatg-bulk-progress-text' );
+
+	/* ------------------------------------------------------------------ */
+	/*  Start button                                                      */
+	/* ------------------------------------------------------------------ */
+	$btn.on( 'click', function () {
+		if ( running ) { return; }
+		running = true;
+		$btn.prop( 'disabled', true );     // disable while running
+
+		completed = 0;
+		total     = null;
+
+		$( '#aatg-bulk-status' ).hide();
+		$container.show();
+		$bar.val( 0 );
+		$text.text( 'Initialising…' );
+
+		processBatch();
+	} );
+
+	/* ------------------------------------------------------------------ */
+	/*  Recursive batch processor                                         */
+	/* ------------------------------------------------------------------ */
+	function processBatch() {
+		$.post( aatg_bulk_ajax.ajax_url, {
+			action : 'aatg_bulk_update',
+			nonce  : aatg_bulk_ajax.nonce
+		} )
+		.done( function ( res ) {
+
+			if ( ! res.success ) {
+				handleError( res.data );
+				return;
+			}
+
+			const processed = res.data.processed;
+			const remaining = res.data.remaining;
+
+			if ( total === null ) {
+				total = processed + remaining;
+				$bar.attr( 'max', total );
+			}
+
+			completed += processed;
+			$bar.val( completed );
+			$text.text( `${ completed } images optimised, ${ remaining } remaining.` );
+
+			if ( remaining > 0 ) {
+				setTimeout( processBatch, 5000 );
+			} else {
+				$text.append( '<br>Bulk update complete.' );
+				resetButton();
+			}
+		} )
+		.fail( function ( _jqXHR, _status, err ) {
+			handleError( err );
+		} );
+	}
+
+	/* ------------------------------------------------------------------ */
+	/*  Helpers                                                           */
+	/* ------------------------------------------------------------------ */
+	function handleError( msg ) {
+		$text.text( 'Error: ' + msg );
+		resetButton();
+	}
+
+	function resetButton() {
+		running = false;
+		$btn.prop( 'disabled', false );
+	}
+} );
