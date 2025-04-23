@@ -90,7 +90,7 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 ### 1.7 – 2025-04-21
 - 🆕 Real-time bulk update UI with progress bar and debug text
 - ✅ AJAX response now includes per-image alt text preview
-- 🔄 Bulk update now runs in batches of 5 with 5 second delay
+- 🔄 Bulk update now runs in batches of 5 with 5 5-second delay
 - 🧠 Title prompt refined: “Output ONLY the title without extra labels”
 
 ### 1.6 – 2025-04-19
@@ -142,15 +142,7 @@ You can guide results using:
 - Parent page title (automatic)
 - Image file name (optional setting)
 
-Prompt text itself is optimised for clear, accessible alt descriptions.
-
----
-
-## 📸 Screenshots (if provided)
-
-1. Plugin settings page
-2. Generate button in the Media Library
-3. Bulk alt text tool with progress bar
+The prompt text itself is optimised for clear, accessible alt descriptions.
 
 ---
 
