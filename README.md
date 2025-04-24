@@ -6,7 +6,7 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 
 **Plugin Name:** Auto Alt Text Generator  
 **Author:** [Connor Bulmer](https://connorbulmer.co.uk)  
-**Version:** 1.10  
+**Version:** 1.11  
 **Tested up to:** WordPress 6.5  
 **Requires at least:** WordPress 5.5  
 **License:** GPL v3 or later  
@@ -74,19 +74,22 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 
 ## 📦 Changelog
 
-### 1.10 – 2025-04-24
+### 1.11 – 2025-04-23
+- ✅ Added checkbox for full site context for image title generations
+
+### 1.10 – 2025-04-23
 - 🛠️ Fixed: bulk update tool was prematurely ending after the first batch  
 - ✅ `post_status = inherit` now included in remaining-image query  
 - ✅ Improved meta-query to detect alt text that is empty **or** whitespace  
 - 🧮 Remaining counter is now accurate across all batches  
 - 🖱 Bulk update button now disables while the process is running and re-enables on completion
 
-### 1.9 – 2025-04-23
+### 1.9 – 2025-04-21
 - ✅ Added setting to include the image file name in the prompt
 - ✅ Updated prompts to include filename context when enabled
 - ✅ Improved plugin description and settings clarity
 
-### 1.8 – 2025-04-22
+### 1.8 – 2025-04-21
 - 🔐 Security hardening and internal code review
 - ✅ Sanitised all option inputs with `sanitize_text_field()`
 - ✅ Added nonce verification to all AJAX handlers
@@ -94,19 +97,19 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 - ⚙️ Refactored settings page for cleaner registration
 - 🛡️ All options now use WordPress Settings API with proper defaults
 
-### 1.7 – 2025-04-21
+### 1.7 – 2025-04-20
 - 🆕 Real-time bulk update UI with progress bar and debug text
 - ✅ AJAX response now includes per-image alt text preview
 - 🔄 Bulk update now runs in batches of 5 with 5 5-second delay
 - 🧠 Title prompt refined: “Output ONLY the title without extra labels”
 
-### 1.6 – 2025-04-19
+### 1.6 – 2025-04-18
 - ✅ Full-scan mode: finds all images with missing alt text
 - ⚙️ Bulk processor now uses `sleep()` between chunks
 - 🕒 Added `set_time_limit(0)` for longer runs
 - 💡 Cleaned up AJAX handler logic
 
-### 1.5 – 2025-04-15
+### 1.5 – 2025-04-14
 - 🆕 Added “Automatically Generate Image Title” option (on by default)
 - ✨ New `aatg_generate_image_title()` function
 - 🔄 Title generation now integrated into upload and manual triggers
