@@ -88,6 +88,14 @@ function aatg_register_settings_init() {
 		'default'           => 'off',
 	) );
 
+	/* ---------- NEW: full context for titles ---------- */
+register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
+	'type'              => 'string',
+	'sanitize_callback' => 'sanitize_text_field',
+	'default'           => 'off',
+	) );
+
+
 	add_settings_section(
 		'aatg_settings_section',
 		__( 'Alt Text Generator Settings', 'auto-alt-text-generator' ),
@@ -143,6 +151,15 @@ function aatg_register_settings_init() {
 		'aatg-settings',
 		'aatg_settings_section'
 	);
+
+	add_settings_field(
+	'aatg_title_full_context',
+	__( 'Use full context for image titles', 'auto-alt-text-generator' ),
+	'aatg_title_full_context_render',
+	'aatg-settings',
+	'aatg_settings_section'
+	);
+
 }
 add_action( 'admin_init', 'aatg_register_settings_init' );
 
@@ -220,6 +237,14 @@ function aatg_send_filename_render() {
 	     checked( $send, 'on', false ) . ' /> ' .
 	     esc_html__( 'Pass the image’s file name (e.g. “man-on-a-horse.jpg”) to OpenAI for extra context.', 'auto-alt-text-generator' );
 }
+
+function aatg_title_full_context_render() {
+	$full = get_option( 'aatg_title_full_context', 'off' );
+	echo '<input type="checkbox" id="aatg_title_full_context" name="aatg_title_full_context" value="on" ' .
+	     checked( $full, 'on', false ) . ' /> ' .
+	     esc_html__( 'Include site context and file name when generating titles (uses more tokens).', 'auto-alt-text-generator' );
+}
+
 
 /* ---------- page renderers ---------- */
 
@@ -385,20 +410,25 @@ function aatg_generate_image_title( $post_ID ) {
 	/* build context (parent title + site context + filename) */
 	$parts = array();
 
-	$parent_id = get_post_field( 'post_parent', $post_ID );
-	if ( $parent_id ) {
-		$parent_title = get_the_title( $parent_id );
-		if ( $parent_title ) {
-			$parts[] = "This image is used on a page titled '{$parent_title}'.";
-		}
+/* Always include the parent-page title */
+$parent_id = get_post_field( 'post_parent', $post_ID );
+if ( $parent_id ) {
+	$pt = get_the_title( $parent_id );
+	if ( $pt ) {
+		$parts[] = "This image is used on a page titled '{$pt}'.";
 	}
+}
+
+/* ---------- NEW: extra context only if the box is ticked ---------- */
+if ( get_option( 'aatg_title_full_context', 'off' ) === 'on' ) {
 
 	$site_context = get_option( 'aatg_site_context', '' );
-	if ( ! empty( $site_context ) ) {
+	if ( $site_context ) {
 		$parts[] = "Site context: {$site_context}.";
 	}
 
-	$parts[] = aatg_file_name_context( $post_ID ); // ← NEW line
+	$parts[] = aatg_file_name_context( $post_ID );
+}
 
 	$context = implode( ' ', $parts );
 
