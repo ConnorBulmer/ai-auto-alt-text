@@ -5,7 +5,6 @@
  * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT‑4o mini vision model, improving accessibility and SEO.
  * Version:     1.12
  * Author:      Connor Bulmer
- * Author URI:  https://connorbulmer.co.uk
  * Text Domain: ai-auto-alt-text-generator
  * License: GPL v3 or later
  */
