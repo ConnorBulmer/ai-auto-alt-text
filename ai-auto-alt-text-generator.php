@@ -23,8 +23,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 function aatg_register_settings() {
 	add_options_page(
-		__( 'Alt Text Generator Settings', 'auto-alt-text-generator' ),
-		__( 'Alt Text Generator', 'auto-alt-text-generator' ),
+		__( 'Alt Text Generator Settings', 'ai-auto-alt-text-generator' ),
+		__( 'Alt Text Generator', 'ai-auto-alt-text-generator' ),
 		'manage_options',
 		'aatg-settings',
 		'aatg_render_settings_page'
@@ -37,8 +37,8 @@ add_action( 'admin_menu', 'aatg_register_settings' );
  */
 function aatg_register_bulk_page() {
 	add_management_page(
-		__( 'Bulk Alt Text Update', 'auto-alt-text-generator' ),
-		__( 'Bulk Alt Text Update', 'auto-alt-text-generator' ),
+		__( 'Bulk Alt Text Update', 'ai-auto-alt-text-generator' ),
+		__( 'Bulk Alt Text Update', 'ai-auto-alt-text-generator' ),
 		'manage_options',
 		'aatg-bulk-update',
 		'aatg_render_bulk_page'
@@ -99,14 +99,14 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 
 	add_settings_section(
 		'aatg_settings_section',
-		__( 'Alt Text Generator Settings', 'auto-alt-text-generator' ),
+		__( 'Alt Text Generator Settings', 'ai-auto-alt-text-generator' ),
 		'aatg_section_callback',
 		'aatg-settings'
 	);
 
 	add_settings_field(
 		'aatg_openai_api_key',
-		__( 'OpenAI API Key', 'auto-alt-text-generator' ),
+		__( 'OpenAI API Key', 'ai-auto-alt-text-generator' ),
 		'aatg_api_key_render',
 		'aatg-settings',
 		'aatg_settings_section'
@@ -114,7 +114,7 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 
 	add_settings_field(
 		'aatg_image_size',
-		__( 'Image Size to Send', 'auto-alt-text-generator' ),
+		__( 'Image Size to Send', 'ai-auto-alt-text-generator' ),
 		'aatg_image_size_render',
 		'aatg-settings',
 		'aatg_settings_section'
@@ -122,7 +122,7 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 
 	add_settings_field(
 		'aatg_image_detail',
-		__( 'Image Detail Quality', 'auto-alt-text-generator' ),
+		__( 'Image Detail Quality', 'ai-auto-alt-text-generator' ),
 		'aatg_image_detail_render',
 		'aatg-settings',
 		'aatg_settings_section'
@@ -130,7 +130,7 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 
 	add_settings_field(
 		'aatg_site_context',
-		__( 'Site Context', 'auto-alt-text-generator' ),
+		__( 'Site Context', 'ai-auto-alt-text-generator' ),
 		'aatg_site_context_render',
 		'aatg-settings',
 		'aatg_settings_section'
@@ -138,7 +138,7 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 
 	add_settings_field(
 		'aatg_auto_title',
-		__( 'Automatically Generate Image Title', 'auto-alt-text-generator' ),
+		__( 'Automatically Generate Image Title', 'ai-auto-alt-text-generator' ),
 		'aatg_auto_title_render',
 		'aatg-settings',
 		'aatg_settings_section'
@@ -147,7 +147,7 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 	/* ---------- NEW field ---------- */
 	add_settings_field(
 		'aatg_send_filename',
-		__( 'Send Image File Name to OpenAI', 'auto-alt-text-generator' ),
+		__( 'Send Image File Name to OpenAI', 'ai-auto-alt-text-generator' ),
 		'aatg_send_filename_render',
 		'aatg-settings',
 		'aatg_settings_section'
@@ -155,7 +155,7 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 
 	add_settings_field(
 	'aatg_title_full_context',
-	__( 'Use full context for image titles', 'auto-alt-text-generator' ),
+	__( 'Use full context for image titles', 'ai-auto-alt-text-generator' ),
 	'aatg_title_full_context_render',
 	'aatg-settings',
 	'aatg_settings_section'
@@ -168,7 +168,7 @@ add_action( 'admin_init', 'aatg_register_settings_init' );
  * Settings–section description.
  */
 function aatg_section_callback() {
-	echo '<p>' . esc_html__( 'Enter your API key, choose the image size, select the image detail quality, decide whether to send the image file name for extra context, provide optional site context, and choose whether to automatically generate an image title.', 'auto-alt-text-generator' ) . '</p>';
+	echo '<p>' . esc_html__( 'Enter your API key, choose the image size, select the image detail quality, decide whether to send the image file name for extra context, provide optional site context, and choose whether to automatically generate an image title.', 'ai-auto-alt-text-generator' ) . '</p>';
 }
 
 /* ---------- individual field render callbacks ---------- */
@@ -184,10 +184,10 @@ function aatg_api_key_render() {
 function aatg_image_size_render() {
 	$current = get_option( 'aatg_image_size', 'large' );
 	$sizes   = array(
-		'thumbnail' => __( 'Thumbnail', 'auto-alt-text-generator' ),
-		'medium'    => __( 'Medium', 'auto-alt-text-generator' ),
-		'large'     => __( 'Large', 'auto-alt-text-generator' ),
-		'full'      => __( 'Full', 'auto-alt-text-generator' ),
+		'thumbnail' => __( 'Thumbnail', 'ai-auto-alt-text-generator' ),
+		'medium'    => __( 'Medium', 'ai-auto-alt-text-generator' ),
+		'large'     => __( 'Large', 'ai-auto-alt-text-generator' ),
+		'full'      => __( 'Full', 'ai-auto-alt-text-generator' ),
 	);
 	echo '<select id="aatg_image_size" name="aatg_image_size">';
 	foreach ( $sizes as $key => $label ) {
@@ -203,8 +203,8 @@ function aatg_image_size_render() {
 function aatg_image_detail_render() {
 	$current = get_option( 'aatg_image_detail', 'high' );
 	$opts    = array(
-		'high' => __( 'High', 'auto-alt-text-generator' ),
-		'low'  => __( 'Low', 'auto-alt-text-generator' ),
+		'high' => __( 'High', 'ai-auto-alt-text-generator' ),
+		'low'  => __( 'Low', 'ai-auto-alt-text-generator' ),
 	);
 	echo '<select id="aatg_image_detail" name="aatg_image_detail">';
 	foreach ( $opts as $key => $label ) {
@@ -228,7 +228,7 @@ function aatg_site_context_render() {
 function aatg_auto_title_render() {
 	$auto = get_option( 'aatg_auto_title', 'on' );
 	echo '<input type="checkbox" id="aatg_auto_title" name="aatg_auto_title" value="on" ' . checked( $auto, 'on', false ) . ' /> ' .
-		 esc_html__( 'Enable automatic image title generation.', 'auto-alt-text-generator' );
+		 esc_html__( 'Enable automatic image title generation.', 'ai-auto-alt-text-generator' );
 }
 
 /* ---------- NEW render callback ---------- */
@@ -236,14 +236,14 @@ function aatg_send_filename_render() {
 	$send = get_option( 'aatg_send_filename', 'off' );
 	echo '<input type="checkbox" id="aatg_send_filename" name="aatg_send_filename" value="on" ' .
 	     checked( $send, 'on', false ) . ' /> ' .
-	     esc_html__( 'Pass the image’s file name (e.g. “man-on-a-horse.jpg”) to OpenAI for extra context.', 'auto-alt-text-generator' );
+	     esc_html__( 'Pass the image’s file name (e.g. “man-on-a-horse.jpg”) to OpenAI for extra context.', 'ai-auto-alt-text-generator' );
 }
 
 function aatg_title_full_context_render() {
 	$full = get_option( 'aatg_title_full_context', 'off' );
 	echo '<input type="checkbox" id="aatg_title_full_context" name="aatg_title_full_context" value="on" ' .
 	     checked( $full, 'on', false ) . ' /> ' .
-	     esc_html__( 'Include site context and file name when generating titles (uses more tokens).', 'auto-alt-text-generator' );
+	     esc_html__( 'Include site context and file name when generating titles (uses more tokens).', 'ai-auto-alt-text-generator' );
 }
 
 
@@ -251,7 +251,7 @@ function aatg_title_full_context_render() {
 
 function aatg_render_settings_page() { ?>
 	<div class="wrap">
-		<h1><?php esc_html_e( 'Alt Text Generator Settings', 'auto-alt-text-generator' ); ?></h1>
+		<h1><?php esc_html_e( 'Alt Text Generator Settings', 'ai-auto-alt-text-generator' ); ?></h1>
 		<form method="post" action="options.php">
 			<?php
 			settings_fields( 'aatg_options_group' );
@@ -264,9 +264,9 @@ function aatg_render_settings_page() { ?>
 
 function aatg_render_bulk_page() { ?>
 	<div class="wrap">
-		<h1><?php esc_html_e( 'Bulk Alt Text Update', 'auto-alt-text-generator' ); ?></h1>
-		<p><?php esc_html_e( 'This tool processes images without alt text in batches of five, pausing five seconds between batches.', 'auto-alt-text-generator' ); ?></p>
-		<button id="aatg-bulk-start" class="button button-primary"><?php esc_html_e( 'Start Bulk Update', 'auto-alt-text-generator' ); ?></button>
+		<h1><?php esc_html_e( 'Bulk Alt Text Update', 'ai-auto-alt-text-generator' ); ?></h1>
+		<p><?php esc_html_e( 'This tool processes images without alt text in batches of five, pausing five seconds between batches.', 'ai-auto-alt-text-generator' ); ?></p>
+		<button id="aatg-bulk-start" class="button button-primary"><?php esc_html_e( 'Start Bulk Update', 'ai-auto-alt-text-generator' ); ?></button>
 		<!-- Progress bar container (hidden until start) -->
 		<div id="aatg-bulk-progress-container" style="text-align: centre; margin-top:20px; display:none;">
 			<progress id="aatg-bulk-progress" value="0" max="100" style="width:100%;"></progress>
@@ -511,10 +511,10 @@ function aatg_attachment_fields_to_edit( $fields, $post ) {
 	}
 
 	$fields['aatg_generate_alt_text'] = array(
-		'label' => __( 'Alt Text & Title Generator', 'auto-alt-text-generator' ),
+		'label' => __( 'Alt Text & Title Generator', 'ai-auto-alt-text-generator' ),
 		'input' => 'html',
 		'html'  => '<button type="button" class="button aatg-generate-alt" data-attachment-id="' . esc_attr( $post->ID ) . '">' .
-						__( 'Generate Alt Text & Title', 'auto-alt-text-generator' ) .
+						__( 'Generate Alt Text & Title', 'ai-auto-alt-text-generator' ) .
 				   '</button>' .
 				   '<span class="aatg-result" style="margin-left:10px;">' .
 						esc_html( get_post_meta( $post->ID, '_wp_attachment_image_alt', true ) ) .
@@ -522,7 +522,7 @@ function aatg_attachment_fields_to_edit( $fields, $post ) {
 				   '<span class="aatg-title-result" style="margin-left:10px;">' .
 						esc_html( get_the_title( $post->ID ) ) .
 				   '</span>',
-		'helps' => __( 'Click to generate alt text (and title if enabled) using OpenAI.', 'auto-alt-text-generator' ),
+		'helps' => __( 'Click to generate alt text (and title if enabled) using OpenAI.', 'ai-auto-alt-text-generator' ),
 	);
 
 	return $fields;
