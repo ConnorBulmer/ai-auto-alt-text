@@ -1,4 +1,4 @@
-# Auto Alt Text Generator
+# AI Auto Alt Text Generator
 
 Automatically generates alt text and image titles for uploaded images in WordPress using OpenAI’s GPT‑4o mini vision model. Improves accessibility and SEO with no manual effort.
 
