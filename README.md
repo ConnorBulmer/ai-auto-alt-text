@@ -75,6 +75,10 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 
 ## 📦 Changelog
 
+### 1.12 – 2025-04-23
+- ✅ Tweaks to bulk update
+- ✅ Various code cleanups and tweaks to work towards getting this on WP.org
+
 ### 1.11 – 2025-04-23
 - ✅ Added checkbox for full site context for image title generations
 
