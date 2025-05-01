@@ -55,12 +55,12 @@ jQuery( function ( $ ) {
 
 			completed += processed;
 			$bar.val( completed );
-			$text.text( `${ completed } images optimised, ${ remaining } remaining.` );
+			$text.text( `Optimised ${ completed } of ${ total } images…` );
 
 			if ( remaining > 0 ) {
 				setTimeout( processBatch, 5000 );
 			} else {
-				$text.append( '<br>Bulk update complete.' );
+				$text.text( `Bulk update complete — ${ total } images optimised.` );
 				resetButton();
 			}
 		} )
