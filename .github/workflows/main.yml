@@ -1,31 +1,30 @@
 name: Build plugin zip
 
-# Run the job whenever you push a tag that begins with "v"
 on:
   push:
-    tags: [ 'v*' ]
+    tags: ['v*']
+
+permissions:            
+  contents: write       # allows updating/releases/uploads
 
 jobs:
   package:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Check out the repository
       - uses: actions/checkout@v4
 
-      # 2. Create the slugged folder and move plugin files into it
-      - name: Prepare plugin folder
+      - name: Prepare folder
         run: |
           mkdir ai-auto-alt-text-generator
           shopt -s extglob
           mv !(ai-auto-alt-text-generator) ai-auto-alt-text-generator/
 
-      # 3. Build the zip
       - name: Zip plugin
         run: zip -r ai-auto-alt-text-generator.zip ai-auto-alt-text-generator
 
-      # 4. Upload the zip as a release asset on the tag
-      - name: Attach asset to release
+      - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           files: ai-auto-alt-text-generator.zip
+          draft: false                 # let the action create/publish release
+          generate_release_notes: true
