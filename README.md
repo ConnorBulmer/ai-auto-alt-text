@@ -7,7 +7,7 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 **Plugin Name:** AI Auto Alt Text Generator   
 **Author:** [Connor Bulmer](https://connorbulmer.co.uk)   
 **Version:** 1.12   
-**Stable tag:** 1.12   
+**Stable tag:** 1.13   
 **Tested up to:** WordPress 6.8   
 **Requires at least:** WordPress 5.5   
 **License:** GPL v3 or later   
@@ -75,7 +75,10 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 
 ## 📦 Changelog
 
-### 1.12 – 2025-04-23
+### 1.13 – 2025-05-06
+- ✅ Fixes for bulk update not working on some versions of MySQL
+
+### 1.12 – 2025-05-01
 - ✅ Tweaks to bulk update
 - ✅ Various code cleanups and tweaks to work towards getting this on WP.org
 
