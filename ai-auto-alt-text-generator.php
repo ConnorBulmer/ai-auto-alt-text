@@ -3,8 +3,9 @@
  * Plugin Name: AI Auto Alt Text Generator
  * Plugin URI:  https://connorbulmer.co.uk
  * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT‑4o mini vision model, improving accessibility and SEO.
- * Version:     1.12
+ * Version:     1.13
  * Author:      Connor Bulmer
+ * Author URI:  https://connorbulmer.co.uk
  * Text Domain: ai-auto-alt-text-generator
  * License: GPL v3 or later
  */
@@ -12,6 +13,36 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+/** -----------------------------------------------------------------
+ *  Lightweight file logger for the bulk updater
+ * ------------------------------------------------------------------*/
+if ( ! function_exists( 'aatg_write_log' ) ) {
+	function aatg_write_log( $data ) {
+		$uploads = wp_upload_dir();
+		$dir     = trailingslashit( $uploads['basedir'] ) . 'aatg-logs';
+
+		if ( ! is_dir( $dir ) ) {
+			wp_mkdir_p( $dir );
+		}
+
+		$file = trailingslashit( $dir ) . 'bulk-debug.log';
+		$time = date_i18n( 'Y-m-d H:i:s' );
+
+		$line = '[' . $time . '] ' . print_r( $data, true ) . PHP_EOL;
+		file_put_contents( $file, $line, FILE_APPEND | LOCK_EX );
+	}
+}
+
+
+/** -----------------------------------------------------------------
+ *  Toggle bulk‑update debugging
+ *  (set to false or comment‑out on production sites)
+ *  ---------------------------------------------------------------- */
+if ( ! defined( 'AATG_BULK_DEBUG' ) ) {
+	define( 'AATG_BULK_DEBUG', true );
+}
+
 
 /* =============================================================================
    ADMIN SETTINGS & BULK PAGE
@@ -608,54 +639,58 @@ add_action( 'wp_ajax_aatg_generate_alt_text_ajax', 'aatg_generate_alt_text_ajax'
 ============================================================================= */
 
 /**
- * AJAX – bulk‑update alt text for images without it.
- * Five images per batch.
+ * AJAX – bulk‑update alt text for images without it (five per batch).
+ * Sends optional debug data to JS **and** appends the same info to
+ * wp‑content/uploads/aatg‑logs/bulk-debug.log
  */
 function aatg_bulk_update_ajax() {
-
+	/* -------------------------------------------------- security */
 	if ( ! current_user_can( 'upload_files' ) ) {
 		wp_send_json_error( 'Unauthorised', 403 );
 	}
 	check_ajax_referer( 'aatg_nonce', 'nonce' );
 
-	/* ----------------------------------------------------------------
-	 *  Query arguments shared by both “first batch” and “remaining”
-	 * ---------------------------------------------------------------- */
-	$base_args = array(
+	/* -------------------------------------------------- helpers  */
+	$base = array(
 		'post_type'      => 'attachment',
 		'post_mime_type' => 'image',
-		'post_status'    => 'inherit',   // ← critical: include normal media
+		'post_status'    => 'inherit',
 		'fields'         => 'ids',
-		'meta_query'     => array(
-			'relation' => 'OR',
-
-			// a) meta key missing completely
-			array(
-				'key'     => '_wp_attachment_image_alt',
-				'value'   => '',
-				'compare' => 'NOT EXISTS',
-			),
-
-			// b) key exists but value exactly empty
-			array(
-				'key'     => '_wp_attachment_image_alt',
-				'value'   => '',
-				'compare' => '=',
-			),
-
-			// c) key exists but value is only whitespace
-			array(
-				'key'     => '_wp_attachment_image_alt',
-				'value'   => '^[[:space:]]+$',
-				'compare' => 'REGEXP',
-			),
-		),
 	);
 
-	/* ---------- 1. Fetch up to five IDs -------------------- */
-	$batch_ids = get_posts( array_merge( $base_args, array(
+	/* -------- first query: meta key completely missing ---------- */
+	$ids_no_meta = get_posts( $base + array(
+		'meta_query'     => array(
+			array(
+				'key'     => '_wp_attachment_image_alt',
+				'compare' => 'NOT EXISTS',
+			),
+		),
+		'posts_per_page' => 5,          // we only need up to 5 per pass
+	) );
+
+	/* -------- second query: key exists but value blank/whitespace */
+	$ids_blank = get_posts( $base + array(
+		'meta_query'     => array(
+			array(
+				'relation' => 'OR',
+				array(
+					'key'     => '_wp_attachment_image_alt',
+					'value'   => '',
+					'compare' => '=',
+				),
+				array(
+					'key'     => '_wp_attachment_image_alt',
+					'value'   => '^\s*$',
+					'compare' => 'REGEXP',
+				),
+			),
+		),
 		'posts_per_page' => 5,
-	) ) );
+	) );
+
+	/* -------- merge and take up to five unique IDs -------------- */
+	$batch_ids = array_slice( array_unique( array_merge( $ids_no_meta, $ids_blank ) ), 0, 5 );
 
 	$processed = 0;
 	foreach ( $batch_ids as $att_id ) {
@@ -663,21 +698,59 @@ function aatg_bulk_update_ajax() {
 		$processed++;
 	}
 
-	/* ---------- 2. Count what still remains ---------------- */
-	$remaining_q = new WP_Query( array_merge( $base_args, array(
-		'posts_per_page' => 1,     // we only need the count, not the rows
-		'no_found_rows'  => false, // let WP calculate found_posts
-	) ) );
-	$remaining = (int) $remaining_q->found_posts;
+	/* -------- remaining count: run both queries with found_rows -- */
+	$count_no_meta = new WP_Query( $base + array(
+		'meta_query'     => array(
+			array(
+				'key'     => '_wp_attachment_image_alt',
+				'compare' => 'NOT EXISTS',
+			),
+		),
+		'posts_per_page' => 1,
+		'no_found_rows'  => false,
+	) );
+	$count_blank    = new WP_Query( $base + array(
+		'meta_query'     => array(
+			array(
+				'relation' => 'OR',
+				array(
+					'key'     => '_wp_attachment_image_alt',
+					'value'   => '',
+					'compare' => '=',
+				),
+				array(
+					'key'     => '_wp_attachment_image_alt',
+					'value'   => '^\s*$',
+					'compare' => 'REGEXP',
+				),
+			),
+		),
+		'posts_per_page' => 1,
+		'no_found_rows'  => false,
+	) );
+	$remaining = (int) $count_no_meta->found_posts + (int) $count_blank->found_posts;
 	wp_reset_postdata();
 
-	/* ---------- 3. Respond to browser ---------------------- */
+	/* -------- debug + response ---------------------------------- */
+	$debug = array(
+		'batch_ids'     => $batch_ids,
+		'no_meta_sql'   => $count_no_meta->request,
+		'blank_sql'     => $count_blank->request,
+	);
+
+	if ( function_exists( 'aatg_write_log' ) ) {
+		aatg_write_log( $debug );
+	}
+
 	wp_send_json_success( array(
 		'processed' => $processed,
 		'remaining' => $remaining,
+		'debug'     => $debug,
 	) );
 }
+
 add_action( 'wp_ajax_aatg_bulk_update', 'aatg_bulk_update_ajax' );
+
 
 add_filter( 'pre_update_option_aatg_openai_api_key', function ( $value, $old_value ) {
     // If the submitted value is empty, keep the old one.
