@@ -82,3 +82,9 @@ jQuery( function ( $ ) {
 		$btn.prop( 'disabled', false );
 	}
 } );
+
+function handleError( msg ) {
+    $text.text( 'Error: ' + msg );
+    + console.error( 'aatg ⇢ bulk error', msg );   // ← NEW
+    resetButton();
+}
