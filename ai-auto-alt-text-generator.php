@@ -3,7 +3,7 @@
  * Plugin Name: AI Auto Alt Text Generator
  * Plugin URI:  https://github.com/ConnorBulmer/ai-auto-alt-text/
  * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT‑4o mini vision model, improving accessibility and SEO.
- * Version:     1.13
+ * Version:     1.14
  * Author:      Connor Bulmer
  * Author URI:  https://connorbulmer.co.uk
  * Text Domain: ai-auto-alt-text-generator
