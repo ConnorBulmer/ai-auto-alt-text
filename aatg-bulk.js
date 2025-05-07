@@ -6,6 +6,10 @@ jQuery( function ( $ ) {
 	let completed = 0;
 	let running   = false;
 
+	const DELAY = ( 'delay' in aatg_bulk_ajax )
+	? parseInt( aatg_bulk_ajax.delay, 10 ) * 1000
+	: 2000;   // fallback if localisation is missing
+
 	const $btn       = $( '#aatg-bulk-start' );
 	const $container = $( '#aatg-bulk-progress-container' );
 	const $bar       = $( '#aatg-bulk-progress' );
@@ -58,7 +62,7 @@ jQuery( function ( $ ) {
 			$text.text( `Optimised ${ completed } of ${ total } images…` );
 
 			if ( remaining > 0 ) {
-				setTimeout( processBatch, 5000 );
+				setTimeout( processBatch, DELAY );
 			} else {
 				$text.text( `Bulk update complete — ${ total } images optimised.` );
 				resetButton();
