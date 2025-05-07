@@ -126,6 +126,14 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 	'default'           => 'off',
 	) );
 
+	/* delay (seconds) between bulk batches -------------------------- */
+register_setting( 'aatg_options_group', 'aatg_bulk_delay', array(
+	'type'              => 'integer',
+	'sanitize_callback' => 'absint',
+	'default'           => 2,          // ← new default
+) );
+
+
 
 	add_settings_section(
 		'aatg_settings_section',
@@ -190,6 +198,17 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 	'aatg-settings',
 	'aatg_settings_section'
 	);
+
+	add_settings_field(
+	'aatg_bulk_delay',
+	__( 'Bulk optimiser delay (seconds)', 'ai-auto-alt-text-generator' ),
+	'aatg_bulk_delay_render',
+	'aatg-settings',
+	'aatg_settings_section'
+);
+
+
+	
 
 }
 add_action( 'admin_init', 'aatg_register_settings_init' );
@@ -276,6 +295,17 @@ function aatg_title_full_context_render() {
 	     esc_html__( 'Include site context and file name when generating titles (uses more tokens).', 'ai-auto-alt-text-generator' );
 }
 
+function aatg_bulk_delay_render() {
+	$delay = get_option( 'aatg_bulk_delay', 2 );
+	printf(
+		'<input type="number" min="0" id="aatg_bulk_delay" name="aatg_bulk_delay" value="%d" style="width:70px;" />',
+		(int) $delay
+	);
+	echo ' <span class="description">' .
+	     esc_html__( 'Seconds to wait between each five‑image batch during a bulk run.', 'ai-auto-alt-text-generator' ) .
+	     '</span>';
+}
+
 
 /* ---------- page renderers ---------- */
 
@@ -295,7 +325,15 @@ function aatg_render_settings_page() { ?>
 function aatg_render_bulk_page() { ?>
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Bulk Alt Text Update', 'ai-auto-alt-text-generator' ); ?></h1>
-		<p><?php esc_html_e( 'This tool processes images without alt text in batches of five, pausing five seconds between batches.', 'ai-auto-alt-text-generator' ); ?></p>
+$delay = (int) get_option( 'aatg_bulk_delay', 2 );
+printf(
+	'<p>%s</p>',
+	sprintf(
+		/* translators: %d = seconds */
+		esc_html__( 'This tool processes images without alt text in batches of five, pausing %d seconds between batches.', 'ai-auto-alt-text-generator' ),
+		$delay
+	)
+);
 		<button id="aatg-bulk-start" class="button button-primary"><?php esc_html_e( 'Start Bulk Update', 'ai-auto-alt-text-generator' ); ?></button>
 		<!-- Progress bar container (hidden until start) -->
 		<div id="aatg-bulk-progress-container" style="text-align: centre; margin-top:20px; display:none;">
@@ -594,9 +632,11 @@ function aatg_enqueue_bulk_script() {
 		);
 
 		wp_localize_script( 'aatg-bulk-script', 'aatg_bulk_ajax', array(
-			'ajax_url' => admin_url( 'admin-ajax.php' ),
-			'nonce'    => wp_create_nonce( 'aatg_nonce' ),
-		) );
+	'ajax_url' => admin_url( 'admin-ajax.php' ),
+	'nonce'    => wp_create_nonce( 'aatg_nonce' ),
+	'delay'    => (int) get_option( 'aatg_bulk_delay', 2 ),
+) );
+
 	}
 }
 add_action( 'admin_enqueue_scripts', 'aatg_enqueue_bulk_script' );
