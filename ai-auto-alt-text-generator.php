@@ -325,24 +325,39 @@ function aatg_render_settings_page() { ?>
 function aatg_render_bulk_page() { ?>
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Bulk Alt Text Update', 'ai-auto-alt-text-generator' ); ?></h1>
-$delay = (int) get_option( 'aatg_bulk_delay', 2 );
-printf(
-	'<p>%s</p>',
-	sprintf(
-		/* translators: %d = seconds */
-		esc_html__( 'This tool processes images without alt text in batches of five, pausing %d seconds between batches.', 'ai-auto-alt-text-generator' ),
-		$delay
-	)
-);
-		<button id="aatg-bulk-start" class="button button-primary"><?php esc_html_e( 'Start Bulk Update', 'ai-auto-alt-text-generator' ); ?></button>
+
+		<?php
+		// Calculate the delay and output the explanatory paragraph.
+		$delay = (int) get_option( 'aatg_bulk_delay', 2 );
+
+		printf(
+			'<p>%s</p>',
+			sprintf(
+				/* translators: %d = seconds */
+				esc_html__(
+					'This tool processes images without alt text in batches of five, pausing %d seconds between batches.',
+					'ai-auto-alt-text-generator'
+				),
+				$delay
+			)
+		);
+		?>
+
+		<button id="aatg-bulk-start" class="button button-primary">
+			<?php esc_html_e( 'Start Bulk Update', 'ai-auto-alt-text-generator' ); ?>
+		</button>
+
 		<!-- Progress bar container (hidden until start) -->
-		<div id="aatg-bulk-progress-container" style="text-align: centre; margin-top:20px; display:none;">
+		<div id="aatg-bulk-progress-container"
+		     style="text-align:center; margin-top:20px; display:none;">
 			<progress id="aatg-bulk-progress" value="0" max="100" style="width:100%;"></progress>
 			<div id="aatg-bulk-progress-text" style="margin-top:5px; font-weight:bold;"></div>
 		</div>
+
 		<div id="aatg-bulk-status" style="margin-top:20px;"></div>
 	</div>
 <?php }
+
 
 /* =============================================================================
    ALT TEXT AND TITLE GENERATION
