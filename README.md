@@ -8,8 +8,8 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 
 **Plugin Name:** AI Auto Alt Text Generator   
 **Author:** [Connor Bulmer](https://connorbulmer.co.uk)   
-**Version:** 1.14   
-**Stable tag:** 1.14   
+**Version:** 1.15   
+**Stable tag:** 1.15   
 **Tested up to:** WordPress 6.8   
 **Requires at least:** WordPress 5.5   
 **License:** GPL v3 or later   
@@ -77,8 +77,11 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 
 ## 📦 Changelog
 
+## 1.15 - 2025-07-29
+- 🌐 Various tweaks to help get the plugin listed in the WP repo
+
 ## 1.14 - 2025-05-07
-- ⏲️ added option to adjust delay and set the new default delay to 2 seconds (from 5 seconds), it would be worth checking your RPM/RPD [here](https://platform.openai.com/docs/models/gpt-4o-mini) to make sure you do not hit rate limits
+- ⏲️ Added option to adjust delay and set the new default delay to 2 seconds (from 5 seconds), it would be worth checking your RPM/RPD [here](https://platform.openai.com/docs/models/gpt-4o-mini) to make sure you do not hit rate limits
 
 ### 1.13 – 2025-05-06
 - ✅ Fixes for bulk update not working on some versions of MySQL
