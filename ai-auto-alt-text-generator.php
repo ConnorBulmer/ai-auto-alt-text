@@ -5,6 +5,7 @@
  * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT‑4o mini vision model, improving accessibility and SEO.
  * Version:     1.15
  * Requires at least: 5.5
+ * Tested up to: 6.8
  * Requires PHP: 7.4
  * Author:      Connor Bulmer
  * Author URI:  https://connorbulmer.co.uk
@@ -813,4 +814,5 @@ add_filter( 'pre_update_option_aatg_openai_api_key', function ( $value, $old_val
     // If the submitted value is empty, keep the old one.
     return $value === '' ? $old_value : trim( $value );
 }, 10, 2 );
+
 
