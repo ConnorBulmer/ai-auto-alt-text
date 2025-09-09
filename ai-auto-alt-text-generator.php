@@ -3,7 +3,7 @@
  * Plugin Name: AI Auto Alt Text Generator
  * Plugin URI:  https://github.com/ConnorBulmer/ai-auto-alt-text/
  * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT‑4o mini vision model, improving accessibility and SEO.
- * Version:     1.15
+ * Version:     1.16
  * Requires at least: 5.5
  * Tested up to: 6.8
  * Requires PHP: 7.4
@@ -136,6 +136,14 @@ register_setting( 'aatg_options_group', 'aatg_bulk_delay', array(
 	'default'           => 2,          // ← new default
 ) );
 
+/* language selection ------------------------------------------------------- */
+register_setting( 'aatg_options_group', 'aatg_language', array(
+	'type'              => 'string',
+	'sanitize_callback' => 'sanitize_text_field',
+	'default'           => 'en_US', // default: English (US)
+) );
+
+
 
 
 	add_settings_section(
@@ -210,6 +218,13 @@ register_setting( 'aatg_options_group', 'aatg_bulk_delay', array(
 	'aatg_settings_section'
 );
 
+add_settings_field(
+	'aatg_language',
+	__( 'Output Language', 'ai-auto-alt-text-generator' ),
+	'aatg_language_render',
+	'aatg-settings',
+	'aatg_settings_section'
+);
 
 	
 
@@ -320,10 +335,18 @@ function aatg_render_settings_page() { ?>
 			settings_fields( 'aatg_options_group' );
 			do_settings_sections( 'aatg-settings' );
 			submit_button();
+
+			// NEW: quick link to the bulk tool
+			printf(
+				'<p><a class="button button-secondary" href="%s">%s</a></p>',
+				esc_url( admin_url( 'tools.php?page=aatg-bulk-update' ) ),
+				esc_html__( 'Go to Bulk Alt Text Update', 'ai-auto-alt-text-generator' )
+			);
 			?>
 		</form>
 	</div>
 <?php }
+
 
 function aatg_render_bulk_page() { ?>
 	<div class="wrap">
@@ -421,31 +444,44 @@ function aatg_generate_alt_text( $post_ID ) {
 		$context .= "Site context: {$site_context}. ";
 	}
 
-	$context .= aatg_file_name_context( $post_ID ); // ← NEW line
+	$context .= aatg_file_name_context( $post_ID );
 
 	$base_prompt = 'Please provide a concise, context-aware alt-text description for the following image. Focus on key visual elements such as primary objects, colours and layout, avoid phrases like "image of", use clear language for screen readers, and keep it under 140 characters:';
 	$full_prompt = $context . $base_prompt;
 
-	$payload = array(
-		'model'    => 'gpt-4o-mini',
-		'messages' => array(
+	/* language */
+	$system_message = aatg_language_system_message();
+
+	/* build messages */
+	$messages = array();
+
+	if ( $system_message ) {
+		$messages[] = array(
+			'role'    => 'system',
+			'content' => $system_message,
+		);
+	}
+
+	$messages[] = array(
+		'role'    => 'user',
+		'content' => array(
 			array(
-				'role'    => 'user',
-				'content' => array(
-					array(
-						'type' => 'text',
-						'text' => $full_prompt,
-					),
-					array(
-						'type'      => 'image_url',
-						'image_url' => array(
-							'url'    => $image_url,
-							'detail' => get_option( 'aatg_image_detail', 'high' ),
-						),
-					),
+				'type' => 'text',
+				'text' => $full_prompt,
+			),
+			array(
+				'type'      => 'image_url',
+				'image_url' => array(
+					'url'    => $image_url,
+					'detail' => get_option( 'aatg_image_detail', 'high' ),
 				),
 			),
 		),
+	);
+
+	$payload = array(
+		'model'    => 'gpt-4o-mini',
+		'messages' => $messages,
 	);
 
 	$args = array(
@@ -473,6 +509,7 @@ function aatg_generate_alt_text( $post_ID ) {
 	}
 }
 
+
 /**
  * Generate an image title.
  */
@@ -497,50 +534,59 @@ function aatg_generate_image_title( $post_ID ) {
 	/* build context (parent title + site context + filename) */
 	$parts = array();
 
-/* Always include the parent-page title */
-$parent_id = get_post_field( 'post_parent', $post_ID );
-if ( $parent_id ) {
-	$pt = get_the_title( $parent_id );
-	if ( $pt ) {
-		$parts[] = "This image is used on a page titled '{$pt}'.";
-	}
-}
-
-/* ---------- NEW: extra context only if the box is ticked ---------- */
-if ( get_option( 'aatg_title_full_context', 'off' ) === 'on' ) {
-
-	$site_context = get_option( 'aatg_site_context', '' );
-	if ( $site_context ) {
-		$parts[] = "Site context: {$site_context}.";
+	$parent_id = get_post_field( 'post_parent', $post_ID );
+	if ( $parent_id ) {
+		$pt = get_the_title( $parent_id );
+		if ( $pt ) {
+			$parts[] = "This image is used on a page titled '{$pt}'.";
+		}
 	}
 
-	$parts[] = aatg_file_name_context( $post_ID );
-}
+	if ( get_option( 'aatg_title_full_context', 'off' ) === 'on' ) {
+		$site_context = get_option( 'aatg_site_context', '' );
+		if ( $site_context ) {
+			$parts[] = "Site context: {$site_context}.";
+		}
+		$parts[] = aatg_file_name_context( $post_ID );
+	}
 
 	$context = implode( ' ', $parts );
 
 	$title_prompt = "{$context} Please provide a concise, SEO-friendly image title for the following image. Output only the title in plain text. Summarise the image in about 50–70 characters, focusing on its key subject and context:";
 
-	$payload = array(
-		'model'    => 'gpt-4o-mini',
-		'messages' => array(
+	/* language */
+	$system_message = aatg_language_system_message();
+
+	/* build messages */
+	$messages = array();
+
+	if ( $system_message ) {
+		$messages[] = array(
+			'role'    => 'system',
+			'content' => $system_message,
+		);
+	}
+
+	$messages[] = array(
+		'role'    => 'user',
+		'content' => array(
 			array(
-				'role'    => 'user',
-				'content' => array(
-					array(
-						'type' => 'text',
-						'text' => $title_prompt,
-					),
-					array(
-						'type'      => 'image_url',
-						'image_url' => array(
-							'url'    => $image_url,
-							'detail' => get_option( 'aatg_image_detail', 'high' ),
-						),
-					),
+				'type' => 'text',
+				'text' => $title_prompt,
+			),
+			array(
+				'type'      => 'image_url',
+				'image_url' => array(
+					'url'    => $image_url,
+					'detail' => get_option( 'aatg_image_detail', 'high' ),
 				),
 			),
 		),
+	);
+
+	$payload = array(
+		'model'    => 'gpt-4o-mini',
+		'messages' => $messages,
 	);
 
 	$args = array(
@@ -815,4 +861,133 @@ add_filter( 'pre_update_option_aatg_openai_api_key', function ( $value, $old_val
     return $value === '' ? $old_value : trim( $value );
 }, 10, 2 );
 
+/**
+ * Media → Bulk Alt Text Update (redirects to Tools page via load-hook).
+ */
+function aatg_register_media_submenu_redirect() {
+	$hook = add_submenu_page(
+		'upload.php',
+		__( 'Bulk Alt Text Update', 'ai-auto-alt-text-generator' ),
+		__( 'Bulk Alt Text Update', 'ai-auto-alt-text-generator' ),
+		'manage_options', // keep as-is for now
+		'aatg-bulk-update-media',
+		'aatg_bulk_media_redirect' // still required, but won’t run visibly
+	);
 
+	// Redirect as early as possible when this page loads.
+	add_action( "load-{$hook}", function () {
+		wp_safe_redirect( admin_url( 'tools.php?page=aatg-bulk-update' ) );
+		exit;
+	} );
+}
+add_action( 'admin_menu', 'aatg_register_media_submenu_redirect', 15 );
+
+/**
+ * Fallback (shouldn’t be seen thanks to the load-hook redirect).
+ */
+function aatg_bulk_media_redirect() {
+	// In case the load-hook didn’t fire for any reason.
+	wp_safe_redirect( admin_url( 'tools.php?page=aatg-bulk-update' ) );
+	exit;
+}
+
+
+function aatg_plugin_action_links( $links ) {
+	$settings_url = admin_url( 'options-general.php?page=aatg-settings' );
+	$bulk_url     = admin_url( 'tools.php?page=aatg-bulk-update' );
+
+	array_unshift(
+		$links,
+		sprintf( '<a href="%s">%s</a>', esc_url( $bulk_url ), esc_html__( 'Bulk Update', 'ai-auto-alt-text-generator' ) ),
+		sprintf( '<a href="%s">%s</a>', esc_url( $settings_url ), esc_html__( 'Settings', 'ai-auto-alt-text-generator' ) )
+	);
+	return $links;
+}
+add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'aatg_plugin_action_links' );
+
+/**
+ * Languages dropdown.
+ */
+function aatg_language_render() {
+	$current   = get_option( 'aatg_language', 'en_US' );
+	$languages = aatg_get_language_options();
+
+	echo '<select id="aatg_language" name="aatg_language">';
+	foreach ( $languages as $code => $label ) {
+		printf(
+			'<option value="%s" %s>%s</option>',
+			esc_attr( $code ),
+			selected( $current, $code, false ),
+			esc_html( $label )
+		);
+	}
+	echo '</select>';
+}
+
+/**
+ * Map of supported languages.
+ * Keys are option values; values are visible labels.
+ */
+function aatg_get_language_options() {
+	return array(
+		'en_US' => __( 'English (US)', 'ai-auto-alt-text-generator' ),
+		'en_GB' => __( 'English (UK)', 'ai-auto-alt-text-generator' ),
+		'es_ES' => __( 'Spanish (ES)', 'ai-auto-alt-text-generator' ),
+		'es_MX' => __( 'Spanish (LATAM)', 'ai-auto-alt-text-generator' ),
+		'fr_FR' => __( 'French', 'ai-auto-alt-text-generator' ),
+		'de_DE' => __( 'German', 'ai-auto-alt-text-generator' ),
+		'it_IT' => __( 'Italian', 'ai-auto-alt-text-generator' ),
+		'pt_PT' => __( 'Portuguese (PT)', 'ai-auto-alt-text-generator' ),
+		'pt_BR' => __( 'Portuguese (BR)', 'ai-auto-alt-text-generator' ),
+		'nl_NL' => __( 'Dutch', 'ai-auto-alt-text-generator' ),
+		'sv_SE' => __( 'Swedish', 'ai-auto-alt-text-generator' ),
+		'da_DK' => __( 'Danish', 'ai-auto-alt-text-generator' ),
+		'fi_FI' => __( 'Finnish', 'ai-auto-alt-text-generator' ),
+		'no_NO' => __( 'Norwegian', 'ai-auto-alt-text-generator' ),
+		'pl_PL' => __( 'Polish',  'ai-auto-alt-text-generator' ),
+		'cs_CZ' => __( 'Czech',   'ai-auto-alt-text-generator' ),
+		'tr_TR' => __( 'Turkish', 'ai-auto-alt-text-generator' ),
+		'ru_RU' => __( 'Russian', 'ai-auto-alt-text-generator' ),
+		'ja_JP' => __( 'Japanese','ai-auto-alt-text-generator' ),
+		'ko_KR' => __( 'Korean',  'ai-auto-alt-text-generator' ),
+		'zh_CN' => __( 'Chinese (Simplified)',  'ai-auto-alt-text-generator' ),
+		'zh_TW' => __( 'Chinese (Traditional)', 'ai-auto-alt-text-generator' ),
+		'ar'    => __( 'Arabic',  'ai-auto-alt-text-generator' ),
+		'hi_IN' => __( 'Hindi',   'ai-auto-alt-text-generator' ),
+	);
+}
+
+/**
+ * Return a system message instructing the model to write in the selected language.
+ * For en_US we return an empty string to preserve current behaviour.
+ */
+function aatg_language_system_message() {
+	$code = get_option( 'aatg_language', 'en_US' );
+
+	switch ( $code ) {
+		case 'en_GB': return 'Write all outputs in English (UK) using British spellings.';
+		case 'es_ES':
+		case 'es_MX': return 'Write all outputs in Spanish.';
+		case 'fr_FR': return 'Write all outputs in French.';
+		case 'de_DE': return 'Write all outputs in German.';
+		case 'it_IT': return 'Write all outputs in Italian.';
+		case 'pt_PT': return 'Write all outputs in European Portuguese.';
+		case 'pt_BR': return 'Write all outputs in Brazilian Portuguese.';
+		case 'nl_NL': return 'Write all outputs in Dutch.';
+		case 'sv_SE': return 'Write all outputs in Swedish.';
+		case 'da_DK': return 'Write all outputs in Danish.';
+		case 'fi_FI': return 'Write all outputs in Finnish.';
+		case 'no_NO': return 'Write all outputs in Norwegian.';
+		case 'pl_PL': return 'Write all outputs in Polish.';
+		case 'cs_CZ': return 'Write all outputs in Czech.';
+		case 'tr_TR': return 'Write all outputs in Turkish.';
+		case 'ru_RU': return 'Write all outputs in Russian.';
+		case 'ja_JP': return 'Write all outputs in Japanese.';
+		case 'ko_KR': return 'Write all outputs in Korean.';
+		case 'zh_CN': return 'Write all outputs in Simplified Chinese.';
+		case 'zh_TW': return 'Write all outputs in Traditional Chinese.';
+		case 'ar'   : return 'Write all outputs in Arabic.';
+		case 'hi_IN': return 'Write all outputs in Hindi.';
+		default:     return ''; // en_US or unknown → no change
+	}
+}
