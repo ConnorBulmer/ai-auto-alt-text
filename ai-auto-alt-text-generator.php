@@ -91,6 +91,12 @@ function aatg_register_settings_init() {
 		'autoload'          => false,
 	) );
 
+	register_setting( 'aatg_options_group', 'aatg_openai_model', array(
+		'type'              => 'string',
+		'sanitize_callback' => 'sanitize_text_field',
+		'default'           => 'gpt-4o-mini',
+	) );
+
 	register_setting( 'aatg_options_group', 'aatg_image_size', array(
 		'type'              => 'string',
 		'sanitize_callback' => 'sanitize_text_field',
@@ -157,6 +163,14 @@ register_setting( 'aatg_options_group', 'aatg_language', array(
 		'aatg_openai_api_key',
 		__( 'OpenAI API Key', 'ai-auto-alt-text-generator' ),
 		'aatg_api_key_render',
+		'aatg-settings',
+		'aatg_settings_section'
+	);
+
+	add_settings_field(
+		'aatg_openai_model',
+		__( 'OpenAI Model', 'ai-auto-alt-text-generator' ),
+		'aatg_openai_model_render',
 		'aatg-settings',
 		'aatg_settings_section'
 	);
@@ -235,7 +249,7 @@ add_action( 'admin_init', 'aatg_register_settings_init' );
  * Settings–section description.
  */
 function aatg_section_callback() {
-	echo '<p>' . esc_html__( 'Enter your API key, choose the image size, select the image detail quality, decide whether to send the image file name for extra context, provide optional site context, and choose whether to automatically generate an image title.', 'ai-auto-alt-text-generator' ) . '</p>';
+	echo '<p>' . esc_html__( 'Enter your API key, choose the OpenAI model, select the image size and detail quality, decide whether to send the image file name for extra context, provide optional site context, and choose whether to automatically generate an image title.', 'ai-auto-alt-text-generator' ) . '</p>';
 }
 
 /* ---------- individual field render callbacks ---------- */
@@ -246,6 +260,22 @@ function aatg_api_key_render() {
 		'<input type="text" id="aatg_api_key" name="aatg_openai_api_key" value="%s" class="regular-text ltr" />',
 		esc_attr( $api_key )
 	);
+}
+
+function aatg_openai_model_render() {
+	$current = aatg_get_selected_model();
+	$models  = aatg_get_model_options();
+
+	echo '<select id="aatg_openai_model" name="aatg_openai_model">';
+	foreach ( $models as $key => $label ) {
+		printf(
+			'<option value="%s" %s>%s</option>',
+			esc_attr( $key ),
+			selected( $current, $key, false ),
+			esc_html( $label )
+		);
+	}
+	echo '</select>';
 }
 
 function aatg_image_size_render() {
@@ -480,7 +510,7 @@ function aatg_generate_alt_text( $post_ID ) {
 	);
 
 	$payload = array(
-		'model'    => 'gpt-4o-mini',
+		'model'    => aatg_get_selected_model(),
 		'messages' => $messages,
 	);
 
@@ -585,7 +615,7 @@ function aatg_generate_image_title( $post_ID ) {
 	);
 
 	$payload = array(
-		'model'    => 'gpt-4o-mini',
+		'model'    => aatg_get_selected_model(),
 		'messages' => $messages,
 	);
 
@@ -955,6 +985,31 @@ function aatg_get_language_options() {
 		'ar'    => __( 'Arabic',  'ai-auto-alt-text-generator' ),
 		'hi_IN' => __( 'Hindi',   'ai-auto-alt-text-generator' ),
 	);
+}
+
+/**
+ * OpenAI model options.
+ */
+function aatg_get_model_options() {
+	return array(
+		'gpt-4o-mini' => __( 'GPT-4o mini (Default)', 'ai-auto-alt-text-generator' ),
+		'gpt-5-mini'  => __( 'GPT 5 Mini - Higher Quality (BETA)', 'ai-auto-alt-text-generator' ),
+		'gpt-5-nano'  => __( 'GPT 5 Nano - Cheaper (BETA)', 'ai-auto-alt-text-generator' ),
+	);
+}
+
+/**
+ * Resolve the configured model, falling back to the default if invalid.
+ */
+function aatg_get_selected_model() {
+	$current = get_option( 'aatg_openai_model', 'gpt-4o-mini' );
+	$options = aatg_get_model_options();
+
+	if ( ! array_key_exists( $current, $options ) ) {
+		return 'gpt-4o-mini';
+	}
+
+	return $current;
 }
 
 /**
