@@ -1,6 +1,6 @@
 # AI Auto Alt Text Generator
 
-Automatically generates alt text and image titles for uploaded images in WordPress using OpenAI’s GPT‑4o mini vision model. Improves accessibility and SEO with no manual effort.
+Automatically generates alt text and image titles for uploaded images in WordPress using OpenAI models you can choose from (defaulting to GPT‑4o mini). Improves accessibility and SEO with no manual effort.
 
 **External service used:** OpenAI (see “External services” section in `readme.txt` for full details).
 
@@ -26,7 +26,8 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 - Choose the image size and visual detail level to send
 - Provide optional site-wide context to improve results
 - **NEW**: Optionally include the image file name in the prompt
-- Uses GPT-4o’s vision model (text + image input)
+- Choose between GPT-4o mini and GPT 5 Mini/Nano (BETA) models
+- Uses OpenAI vision-capable models (text + image input)
 - Lightweight and privacy-conscious — no third-party servers involved except OpenAI
 - Language selection provided to enable alt text in the appropriate language
 
@@ -34,7 +35,7 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 
 ## 🧠 How It Works
 
-This plugin uses the OpenAI API (GPT-4o) to generate meaningful, screen-reader-friendly alt text and titles for your media uploads. It sends the image **via public URL** to OpenAI along with context like:
+This plugin uses the OpenAI API to generate meaningful, screen-reader-friendly alt text and titles for your media uploads. It sends the image **via public URL** to OpenAI along with context like:
 
 - The parent page title (if attached)
 - Site context (from plugin settings)
@@ -59,7 +60,8 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 
 | Option                            | Description |
 |----------------------------------|-------------|
-| **OpenAI API Key**               | Required to connect to GPT-4o |
+| **OpenAI API Key**               | Required to connect to OpenAI |
+| **OpenAI Model**                 | GPT-4o mini (default), GPT 5 Mini (BETA), or GPT 5 Nano (BETA) |
 | **Image Size to Send**           | Thumbnail, Medium, Large, or Full |
 | **Image Detail Quality**         | Send ‘low’ or ‘high’ image detail |
 | **Site Context**                 | Optional (but recommended)  prompt hint (e.g. about your company/website, your brand voice or industry) |
@@ -165,7 +167,7 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 No — images are passed to OpenAI by URL only, and never stored. Your data remains private.
 
 ### What model does this use?
-GPT-4o mini vision model (`gpt-4o-mini`) as of April 2025. It accepts both text and image input.
+GPT-4o mini by default, with options for GPT 5 Mini and GPT 5 Nano (BETA) in settings. These accept both text and image input.
 
 ### Can I customise the prompt?
 You can guide results using:
