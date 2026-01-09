@@ -3,17 +3,17 @@ Contributors: connorbulmer
 Tags: alt text, accessibility, seo, images, ai
 Requires at least: 5.5
 Tested up to: 6.8
-Stable tag: 1.16
+Stable tag: 1.17
 Requires PHP: 7.4
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 Author URI: https://profiles.wordpress.org/connorbulmer
 
-Automatically generates alt text and image titles for your WordPress media uploads with GPT-4o mini, improving accessibility and SEO.
+Automatically generates alt text and image titles for your WordPress media uploads with selectable OpenAI models (defaulting to GPT-4o mini), improving accessibility and SEO.
 
 == Description ==
 
-**AI Auto Alt Text Generator** is a lightweight, privacy-conscious plugin that uses OpenAI’s GPT-4o mini vision model to create meaningful, screen-reader-friendly alt text and SEO-friendly titles for your images. Whether you add a single image, bulk-process your library, or just want a one-click fix in the Media Library, the plugin handles it all – no manual effort required.
+**AI Auto Alt Text Generator** is a lightweight, privacy-conscious plugin that uses OpenAI vision-capable models (defaulting to GPT-4o mini, with GPT 5 Mini/Nano options) to create meaningful, screen-reader-friendly alt text and SEO-friendly titles for your images. Whether you add a single image, bulk-process your library, or just want a one-click fix in the Media Library, the plugin handles it all – no manual effort required.
 
 This solution is far cheaper than many alternatives because it cuts out the middle-person. You’ll just need to bring your own OpenAI API key.
 
@@ -24,6 +24,7 @@ This solution is far cheaper than many alternatives because it cuts out the midd
 * **One-click manual generation** – “Generate Alt Text & Title” button in the Media Library.
 * **Bulk update tool** – batch-process existing images (five at a time) with a configurable pause between batches.
 * **Prompt fine-tuning** – supply site-wide context and optionally include the image file name.
+* **Model selection** – choose GPT-4o mini (default) or GPT 5 Mini/Nano (BETA).
 * **Image size & detail control** – choose the resolution and level of visual detail sent.
 * **No extra servers** – data flows only between your site and OpenAI; nothing is stored off-site.
 * **Multilingual output** – choose English (UK), English (US) or other popular languages. (English US is the default.)
@@ -37,8 +38,8 @@ This solution is far cheaper than many alternatives because it cuts out the midd
 ### 🧠 How it works
 
 1. When an image is uploaded (or manually chosen), the plugin creates a temporary public URL for that image.
-2. It sends the image – plus optional context such as the parent post title, your custom site context and the file name – to OpenAI’s *gpt-4o-mini* vision model.
-3. GPT-4o returns a concise description.  
+2. It sends the image – plus optional context such as the parent post title, your custom site context and the file name – to your selected OpenAI vision model.
+3. OpenAI returns a concise description.  
    * Alt text is stored in WordPress’ native `_wp_attachment_image_alt` field.  
    * (Optional) The returned title is stored as the attachment post title.
 4. Nothing is cached or stored on OpenAI’s side; only the final strings live in your database.
@@ -53,6 +54,7 @@ This solution is far cheaper than many alternatives because it cuts out the midd
 == Settings overview ==
 
 * **OpenAI API Key** – Required to connect to GPT-4o.  
+* **OpenAI Model** – GPT-4o mini (default), GPT 5 Mini (BETA), or GPT 5 Nano (BETA).  
 * **Image Size to Send** – Thumbnail, Medium, Large, or Full.  
 * **Image Detail Quality** – ‘Low’ or ‘High’.  
 * **Site Context** – Optional free-form prompt guidance (brand voice, niche, etc.).  
@@ -74,12 +76,15 @@ No. The OpenAI API returns a response and does not retain your data. The plugin 
 Yes – via **Settings → Alt Text Generator** you can add site context and choose whether to include the image’s file name or parent post title. You can also select an output language; English (US) remains the default.
 
 = Which model do you use? =  
-GPT-4o mini vision model (`gpt-4o-mini`) as of April 2025.
+GPT-4o mini by default, with GPT 5 Mini and GPT 5 Nano (BETA) available in settings.
 
 = Who can access the bulk tool? =  
 By default, the bulk page requires the `manage_options` capability (typically Administrators). You can change this in code to `upload_files` if you want Editors with media permissions to run it.
 
 == Changelog ==
+
+= 1.17 =
+* **New:** OpenAI model selector with GPT-4o mini default and GPT 5 Mini/Nano (BETA) options.
 
 = 1.16 =
 * **New:** Output Language selector – generate alt text and titles in English (UK) or other popular languages; defaults to English (US).
