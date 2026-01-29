@@ -3,9 +3,9 @@
  * Plugin Name: AI Auto Alt Text Generator
  * Plugin URI:  https://github.com/ConnorBulmer/ai-auto-alt-text/
  * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT‑4o mini vision model, improving accessibility and SEO.
- * Version:     1.16
+ * Version:     1.18
  * Requires at least: 5.5
- * Tested up to: 6.8
+ * Tested up to: 6.9
  * Requires PHP: 7.4
  * Author:      Connor Bulmer
  * Author URI:  https://connorbulmer.co.uk
@@ -106,7 +106,7 @@ function aatg_register_settings_init() {
 	register_setting( 'aatg_options_group', 'aatg_image_detail', array(
 		'type'              => 'string',
 		'sanitize_callback' => 'sanitize_text_field',
-		'default'           => 'high',
+		'default'           => 'low',
 	) );
 
 	register_setting( 'aatg_options_group', 'aatg_site_context', array(
@@ -139,8 +139,14 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 register_setting( 'aatg_options_group', 'aatg_bulk_delay', array(
 	'type'              => 'integer',
 	'sanitize_callback' => 'absint',
-	'default'           => 2,          // ← new default
+	'default'           => 3,
 ) );
+
+	register_setting( 'aatg_options_group', 'aatg_bulk_batch_size', array(
+		'type'              => 'integer',
+		'sanitize_callback' => 'absint',
+		'default'           => 4,
+	) );
 
 /* language selection ------------------------------------------------------- */
 register_setting( 'aatg_options_group', 'aatg_language', array(
@@ -156,6 +162,13 @@ register_setting( 'aatg_options_group', 'aatg_language', array(
 		'aatg_settings_section',
 		__( 'Alt Text Generator Settings', 'ai-auto-alt-text-generator' ),
 		'aatg_section_callback',
+		'aatg-settings'
+	);
+
+	add_settings_section(
+		'aatg_rate_limit_section',
+		__( 'Performance & Rate Limits', 'ai-auto-alt-text-generator' ),
+		'aatg_rate_limit_section_callback',
 		'aatg-settings'
 	);
 
@@ -188,7 +201,7 @@ register_setting( 'aatg_options_group', 'aatg_language', array(
 		__( 'Image Detail Quality', 'ai-auto-alt-text-generator' ),
 		'aatg_image_detail_render',
 		'aatg-settings',
-		'aatg_settings_section'
+		'aatg_rate_limit_section'
 	);
 
 	add_settings_field(
@@ -225,12 +238,20 @@ register_setting( 'aatg_options_group', 'aatg_language', array(
 	);
 
 	add_settings_field(
-	'aatg_bulk_delay',
-	__( 'Bulk optimiser delay (seconds)', 'ai-auto-alt-text-generator' ),
-	'aatg_bulk_delay_render',
-	'aatg-settings',
-	'aatg_settings_section'
-);
+		'aatg_bulk_delay',
+		__( 'Bulk optimiser delay (seconds)', 'ai-auto-alt-text-generator' ),
+		'aatg_bulk_delay_render',
+		'aatg-settings',
+		'aatg_rate_limit_section'
+	);
+
+	add_settings_field(
+		'aatg_bulk_batch_size',
+		__( 'Bulk batch size', 'ai-auto-alt-text-generator' ),
+		'aatg_bulk_batch_size_render',
+		'aatg-settings',
+		'aatg_rate_limit_section'
+	);
 
 add_settings_field(
 	'aatg_language',
@@ -249,7 +270,14 @@ add_action( 'admin_init', 'aatg_register_settings_init' );
  * Settings–section description.
  */
 function aatg_section_callback() {
-	echo '<p>' . esc_html__( 'Enter your API key, choose the OpenAI model, select the image size and detail quality, decide whether to send the image file name for extra context, provide optional site context, and choose whether to automatically generate an image title.', 'ai-auto-alt-text-generator' ) . '</p>';
+	echo '<p>' . esc_html__( 'Enter your API key, choose the OpenAI model, select the image size, decide whether to send the image file name for extra context, provide optional site context, and choose whether to automatically generate an image title.', 'ai-auto-alt-text-generator' ) . '</p>';
+}
+
+/**
+ * Rate limit section description.
+ */
+function aatg_rate_limit_section_callback() {
+	echo '<p>' . esc_html__( 'Tune these settings to reduce token usage and avoid rate limits during bulk runs.', 'ai-auto-alt-text-generator' ) . '</p>';
 }
 
 /* ---------- individual field render callbacks ---------- */
@@ -298,7 +326,7 @@ function aatg_image_size_render() {
 }
 
 function aatg_image_detail_render() {
-	$current = get_option( 'aatg_image_detail', 'high' );
+	$current = get_option( 'aatg_image_detail', 'low' );
 	$opts    = array(
 		'high' => __( 'High', 'ai-auto-alt-text-generator' ),
 		'low'  => __( 'Low', 'ai-auto-alt-text-generator' ),
@@ -312,6 +340,9 @@ function aatg_image_detail_render() {
 		);
 	}
 	echo '</select>';
+	echo ' <span class="description">' .
+	     esc_html__( 'Low uses fewer tokens and is usually sufficient; switch to High for detailed images at higher cost.', 'ai-auto-alt-text-generator' ) .
+	     '</span>';
 }
 
 function aatg_site_context_render() {
@@ -344,75 +375,140 @@ function aatg_title_full_context_render() {
 }
 
 function aatg_bulk_delay_render() {
-	$delay = get_option( 'aatg_bulk_delay', 2 );
+	$delay = get_option( 'aatg_bulk_delay', 3 );
 	printf(
 		'<input type="number" min="0" id="aatg_bulk_delay" name="aatg_bulk_delay" value="%d" style="width:70px;" />',
 		(int) $delay
 	);
 	echo ' <span class="description">' .
-	     esc_html__( 'Seconds to wait between each five‑image batch during a bulk run.', 'ai-auto-alt-text-generator' ) .
+	     esc_html__( 'Seconds to wait between each batch during a bulk run. Increase this if you hit 429 rate limits.', 'ai-auto-alt-text-generator' ) .
+	     '</span>';
+}
+
+function aatg_bulk_batch_size_render() {
+	$size = get_option( 'aatg_bulk_batch_size', 4 );
+	printf(
+		'<input type="number" min="1" max="10" id="aatg_bulk_batch_size" name="aatg_bulk_batch_size" value="%d" style="width:70px;" />',
+		(int) $size
+	);
+	echo ' <span class="description">' .
+	     esc_html__( 'Number of images per batch (lower values reduce rate-limit risk).', 'ai-auto-alt-text-generator' ) .
 	     '</span>';
 }
 
 
 /* ---------- page renderers ---------- */
 
-function aatg_render_settings_page() { ?>
-	<div class="wrap">
-		<h1><?php esc_html_e( 'Alt Text Generator Settings', 'ai-auto-alt-text-generator' ); ?></h1>
-		<form method="post" action="options.php">
-			<?php
-			settings_fields( 'aatg_options_group' );
-			do_settings_sections( 'aatg-settings' );
-			submit_button();
+function aatg_render_settings_page() {
+	aatg_render_dashboard_page( 'settings' );
+}
 
-			// NEW: quick link to the bulk tool
-			printf(
-				'<p><a class="button button-secondary" href="%s">%s</a></p>',
-				esc_url( admin_url( 'tools.php?page=aatg-bulk-update' ) ),
-				esc_html__( 'Go to Bulk Alt Text Update', 'ai-auto-alt-text-generator' )
-			);
-			?>
-		</form>
+
+function aatg_render_bulk_page() {
+	aatg_render_dashboard_page( 'bulk' );
+}
+
+function aatg_render_bulk_panel() { ?>
+	<?php
+	// Calculate the delay and output the explanatory paragraph.
+	$delay      = (int) get_option( 'aatg_bulk_delay', 3 );
+	$batch_size = (int) get_option( 'aatg_bulk_batch_size', 4 );
+
+	printf(
+		'<p>%s</p>',
+		sprintf(
+			/* translators: %1$d = seconds, %2$d = batch size */
+			esc_html__(
+				'This tool processes images without alt text in batches of %2$d, pausing %1$d seconds between batches.',
+				'ai-auto-alt-text-generator'
+			),
+			$delay,
+			$batch_size
+		)
+	);
+	?>
+
+	<button id="aatg-bulk-start" class="button button-primary">
+		<?php esc_html_e( 'Start Bulk Update', 'ai-auto-alt-text-generator' ); ?>
+	</button>
+
+	<!-- Progress bar container (hidden until start) -->
+	<div id="aatg-bulk-progress-container" style="text-align:center; margin-top:20px; display:none;">
+		<progress id="aatg-bulk-progress" value="0" max="100" style="width:100%;"></progress>
+		<div id="aatg-bulk-progress-text" style="margin-top:5px; font-weight:bold;"></div>
 	</div>
+
+	<div id="aatg-bulk-status" style="margin-top:20px;"></div>
+
+	<details id="aatg-bulk-log" style="margin-top:20px; display:none;">
+		<summary id="aatg-bulk-log-summary">
+			<?php esc_html_e( 'Bulk update log (0 items)', 'ai-auto-alt-text-generator' ); ?>
+		</summary>
+		<div id="aatg-bulk-log-entries" style="margin-top:10px;"></div>
+	</details>
 <?php }
 
-
-function aatg_render_bulk_page() { ?>
-	<div class="wrap">
-		<h1><?php esc_html_e( 'Bulk Alt Text Update', 'ai-auto-alt-text-generator' ); ?></h1>
-
-		<?php
-		// Calculate the delay and output the explanatory paragraph.
-		$delay = (int) get_option( 'aatg_bulk_delay', 2 );
-
-		printf(
-			'<p>%s</p>',
-			sprintf(
-				/* translators: %d = seconds */
-				esc_html__(
-					'This tool processes images without alt text in batches of five, pausing %d seconds between batches.',
-					'ai-auto-alt-text-generator'
-				),
-				$delay
-			)
-		);
-		?>
-
-		<button id="aatg-bulk-start" class="button button-primary">
-			<?php esc_html_e( 'Start Bulk Update', 'ai-auto-alt-text-generator' ); ?>
-		</button>
-
-		<!-- Progress bar container (hidden until start) -->
-		<div id="aatg-bulk-progress-container"
-		     style="text-align:center; margin-top:20px; display:none;">
-			<progress id="aatg-bulk-progress" value="0" max="100" style="width:100%;"></progress>
-			<div id="aatg-bulk-progress-text" style="margin-top:5px; font-weight:bold;"></div>
+function aatg_render_dashboard_page( $active_tab = 'settings' ) {
+	$logo_url = plugin_dir_url( __FILE__ ) . 'logo.png';
+	?>
+	<div class="wrap aatg-dashboard" data-default-tab="<?php echo esc_attr( $active_tab ); ?>">
+		<div class="aatg-notices"></div>
+		<div class="aatg-hero">
+			<div class="aatg-hero-brand">
+				<img class="aatg-logo" src="<?php echo esc_url( $logo_url ); ?>" alt="<?php esc_attr_e( 'AI Auto Alt Text Generator logo', 'ai-auto-alt-text-generator' ); ?>" />
+				<div>
+					<h1><?php esc_html_e( 'AI Auto Alt Text Generator', 'ai-auto-alt-text-generator' ); ?></h1>
+					<p><?php esc_html_e( 'Generate accessible, SEO-friendly alt text and titles for your WordPress media library.', 'ai-auto-alt-text-generator' ); ?></p>
+				</div>
+			</div>
 		</div>
 
-		<div id="aatg-bulk-status" style="margin-top:20px;"></div>
+		<nav class="aatg-tabs" role="tablist">
+			<a class="aatg-tab <?php echo $active_tab === 'settings' ? 'is-active' : ''; ?>" href="#settings" data-aatg-tab="settings" role="tab" aria-controls="aatg-panel-settings">
+				<?php esc_html_e( 'Settings', 'ai-auto-alt-text-generator' ); ?>
+			</a>
+			<a class="aatg-tab <?php echo $active_tab === 'bulk' ? 'is-active' : ''; ?>" href="#bulk" data-aatg-tab="bulk" role="tab" aria-controls="aatg-panel-bulk">
+				<?php esc_html_e( 'Bulk Updater', 'ai-auto-alt-text-generator' ); ?>
+			</a>
+			<a class="aatg-tab <?php echo $active_tab === 'integrations' ? 'is-active' : ''; ?>" href="#integrations" data-aatg-tab="integrations" role="tab" aria-controls="aatg-panel-integrations">
+				<?php esc_html_e( 'Integrations', 'ai-auto-alt-text-generator' ); ?>
+			</a>
+		</nav>
+
+		<section id="aatg-panel-settings" class="aatg-panel" data-aatg-panel="settings" role="tabpanel">
+			<form method="post" action="options.php" class="aatg-card">
+				<?php
+				settings_fields( 'aatg_options_group' );
+				do_settings_sections( 'aatg-settings' );
+				submit_button();
+				?>
+			</form>
+		</section>
+
+		<section id="aatg-panel-bulk" class="aatg-panel" data-aatg-panel="bulk" role="tabpanel">
+			<div class="aatg-card">
+				<?php aatg_render_bulk_panel(); ?>
+			</div>
+		</section>
+
+		<section id="aatg-panel-integrations" class="aatg-panel" data-aatg-panel="integrations" role="tabpanel">
+			<div class="aatg-card">
+				<h2><?php esc_html_e( 'Integrations', 'ai-auto-alt-text-generator' ); ?></h2>
+				<p><?php esc_html_e( 'Coming soon.', 'ai-auto-alt-text-generator' ); ?></p>
+			</div>
+		</section>
+
+		<footer class="aatg-footer">
+			<p><?php esc_html_e( 'Made with ❤️ by Connor Bulmer', 'ai-auto-alt-text-generator' ); ?></p>
+			<div class="aatg-footer-links">
+				<a href="https://connorbulmer.co.uk/" target="_blank" rel="noopener noreferrer">Website</a>
+				<a href="https://www.linkedin.com/in/connor-bulmer/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+				<a href="https://github.com/ConnorBulmer" target="_blank" rel="noopener noreferrer">GitHub</a>
+			</div>
+		</footer>
 	</div>
-<?php }
+	<?php
+}
 
 
 /* =============================================================================
@@ -443,19 +539,19 @@ function aatg_file_name_context( $post_ID ) {
 function aatg_generate_alt_text( $post_ID ) {
 
 	if ( ! wp_attachment_is_image( $post_ID ) ) {
-		return;
+		return new WP_Error( 'aatg_not_image', 'Attachment is not an image.' );
 	}
 
 	$size       = get_option( 'aatg_image_size', 'large' );
 	$image_data = wp_get_attachment_image_src( $post_ID, $size );
 	if ( ! $image_data || empty( $image_data[0] ) ) {
-		return;
+		return new WP_Error( 'aatg_missing_image', 'No image data available for this attachment.' );
 	}
 
 	$image_url = $image_data[0];
 	$api_key   = get_option( 'aatg_openai_api_key' );
 	if ( empty( $api_key ) ) {
-		return;
+		return new WP_Error( 'aatg_missing_api_key', 'Missing OpenAI API key.' );
 	}
 
 	/* build context */
@@ -503,7 +599,7 @@ function aatg_generate_alt_text( $post_ID ) {
 				'type'      => 'image_url',
 				'image_url' => array(
 					'url'    => $image_url,
-					'detail' => get_option( 'aatg_image_detail', 'high' ),
+					'detail' => get_option( 'aatg_image_detail', 'low' ),
 				),
 			),
 		),
@@ -525,17 +621,24 @@ function aatg_generate_alt_text( $post_ID ) {
 
 	$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', $args );
 	if ( is_wp_error( $response ) ) {
-		error_log( 'OpenAI API error: ' . $response->get_error_message() );
-		return;
+		aatg_log_api_error( 'alt text', $response );
+		return $response;
+	}
+
+	$code = wp_remote_retrieve_response_code( $response );
+	if ( $code < 200 || $code >= 300 ) {
+		return aatg_handle_openai_error_response( $response, 'alt text' );
 	}
 
 	$body = wp_remote_retrieve_body( $response );
 	$data = json_decode( $body, true );
 	if ( ! empty( $data['choices'][0]['message']['content'] ) ) {
-		$alt_text = sanitize_text_field( $data['choices'][0]['message']['content'] );
+		$alt_text = aatg_trim_leading_quote( sanitize_text_field( $data['choices'][0]['message']['content'] ) );
 		update_post_meta( $post_ID, '_wp_attachment_image_alt', $alt_text );
+		return $alt_text;
 	} else {
-		error_log( 'OpenAI API returned unexpected response: ' . $body );
+		aatg_log_unexpected_response( 'alt text', $body );
+		return new WP_Error( 'aatg_unexpected_response', 'OpenAI API returned an unexpected response.' );
 	}
 }
 
@@ -546,19 +649,19 @@ function aatg_generate_alt_text( $post_ID ) {
 function aatg_generate_image_title( $post_ID ) {
 
 	if ( ! wp_attachment_is_image( $post_ID ) ) {
-		return;
+		return new WP_Error( 'aatg_not_image', 'Attachment is not an image.' );
 	}
 
 	$size       = get_option( 'aatg_image_size', 'large' );
 	$image_data = wp_get_attachment_image_src( $post_ID, $size );
 	if ( ! $image_data || empty( $image_data[0] ) ) {
-		return;
+		return new WP_Error( 'aatg_missing_image', 'No image data available for this attachment.' );
 	}
 
 	$image_url = $image_data[0];
 	$api_key   = get_option( 'aatg_openai_api_key' );
 	if ( empty( $api_key ) ) {
-		return;
+		return new WP_Error( 'aatg_missing_api_key', 'Missing OpenAI API key.' );
 	}
 
 	/* build context (parent title + site context + filename) */
@@ -608,7 +711,7 @@ function aatg_generate_image_title( $post_ID ) {
 				'type'      => 'image_url',
 				'image_url' => array(
 					'url'    => $image_url,
-					'detail' => get_option( 'aatg_image_detail', 'high' ),
+					'detail' => get_option( 'aatg_image_detail', 'low' ),
 				),
 			),
 		),
@@ -630,32 +733,128 @@ function aatg_generate_image_title( $post_ID ) {
 
 	$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', $args );
 	if ( is_wp_error( $response ) ) {
-		error_log( 'OpenAI API error (title): ' . $response->get_error_message() );
-		return;
+		aatg_log_api_error( 'title', $response );
+		return $response;
+	}
+
+	$code = wp_remote_retrieve_response_code( $response );
+	if ( $code < 200 || $code >= 300 ) {
+		return aatg_handle_openai_error_response( $response, 'title' );
 	}
 
 	$body = wp_remote_retrieve_body( $response );
 	$data = json_decode( $body, true );
 	if ( ! empty( $data['choices'][0]['message']['content'] ) ) {
-		$title_text = sanitize_text_field( $data['choices'][0]['message']['content'] );
+		$title_text = aatg_trim_leading_quote( sanitize_text_field( $data['choices'][0]['message']['content'] ) );
 
 		wp_update_post( array(
 			'ID'         => $post_ID,
 			'post_title' => $title_text,
 		) );
+		return $title_text;
 	} else {
-		error_log( 'OpenAI API returned unexpected response for title: ' . $body );
+		aatg_log_unexpected_response( 'title', $body );
+		return new WP_Error( 'aatg_unexpected_response', 'OpenAI API returned an unexpected response.' );
 	}
+}
+
+/**
+ * Trim a leading double-quote character from generated text.
+ */
+function aatg_trim_leading_quote( $text ) {
+	$text = ltrim( $text );
+	if ( strpos( $text, '"' ) === 0 ) {
+		$text = ltrim( substr( $text, 1 ) );
+	}
+
+	return $text;
+}
+
+/**
+ * Extract an OpenAI error message from a response body, if present.
+ */
+function aatg_extract_openai_error_message( $body ) {
+	if ( empty( $body ) ) {
+		return null;
+	}
+
+	$data = json_decode( $body, true );
+	if ( is_array( $data ) && ! empty( $data['error']['message'] ) ) {
+		$message = $data['error']['message'];
+		if ( ! empty( $data['error']['type'] ) ) {
+			$message .= ' (type: ' . $data['error']['type'] . ')';
+		}
+		return $message;
+	}
+
+	return null;
+}
+
+/**
+ * Log a WP_Error from the OpenAI API call with helpful context.
+ */
+function aatg_log_api_error( $context, $error ) {
+	if ( ! is_wp_error( $error ) ) {
+		return;
+	}
+
+	error_log( sprintf( 'OpenAI API error (%s): %s', $context, $error->get_error_message() ) );
+}
+
+/**
+ * Handle non-2xx OpenAI responses and return a WP_Error with detail.
+ */
+function aatg_handle_openai_error_response( $response, $context ) {
+	$code = wp_remote_retrieve_response_code( $response );
+	$body = wp_remote_retrieve_body( $response );
+	$detail = aatg_extract_openai_error_message( $body );
+
+	$message = sprintf( 'OpenAI API error (%s): HTTP %d', $context, $code );
+	if ( $detail ) {
+		$message .= ' - ' . $detail;
+	}
+
+	error_log( $message );
+	if ( $body ) {
+		error_log( sprintf( 'OpenAI API response (%s): %s', $context, $body ) );
+	}
+
+	return new WP_Error( 'aatg_openai_http_error', $message, array( 'status' => $code ) );
+}
+
+/**
+ * Log unexpected successful responses from the OpenAI API.
+ */
+function aatg_log_unexpected_response( $context, $body ) {
+	error_log( sprintf( 'OpenAI API returned unexpected response (%s): %s', $context, $body ) );
 }
 
 /**
  * On upload: generate alt text, then (optionally) title.
  */
 function aatg_generate_text_and_title( $post_ID ) {
-	aatg_generate_alt_text( $post_ID );
-	if ( get_option( 'aatg_auto_title', 'on' ) === 'on' ) {
-		aatg_generate_image_title( $post_ID );
+	$result = array(
+		'alt_text' => null,
+		'title'    => null,
+		'warning'  => null,
+	);
+
+	$alt_result = aatg_generate_alt_text( $post_ID );
+	if ( is_wp_error( $alt_result ) ) {
+		return $alt_result;
 	}
+
+	$result['alt_text'] = $alt_result;
+	if ( get_option( 'aatg_auto_title', 'on' ) === 'on' ) {
+		$title_result = aatg_generate_image_title( $post_ID );
+		if ( is_wp_error( $title_result ) ) {
+			$result['warning'] = $title_result->get_error_message();
+		} else {
+			$result['title'] = $title_result;
+		}
+	}
+
+	return $result;
 }
 add_action( 'add_attachment', 'aatg_generate_text_and_title' );
 
@@ -711,29 +910,48 @@ function aatg_enqueue_admin_scripts() {
 add_action( 'admin_enqueue_scripts', 'aatg_enqueue_admin_scripts' );
 
 /**
- * Enqueue JS only on the bulk‑update page.
+ * Enqueue dashboard assets.
  */
-function aatg_enqueue_bulk_script() {
+function aatg_enqueue_dashboard_assets( $hook ) {
+	$dashboard_hooks = array(
+		'settings_page_aatg-settings',
+		'tools_page_aatg-bulk-update',
+	);
 
-	if ( isset( $_GET['page'] ) && $_GET['page'] === 'aatg-bulk-update' ) {
-
-		wp_enqueue_script(
-			'aatg-bulk-script',
-			plugin_dir_url( __FILE__ ) . 'aatg-bulk.js',
-			array( 'jquery' ),
-			'1.2',           // bump to clear browser cache
-			true
-		);
-
-		wp_localize_script( 'aatg-bulk-script', 'aatg_bulk_ajax', array(
-	'ajax_url' => admin_url( 'admin-ajax.php' ),
-	'nonce'    => wp_create_nonce( 'aatg_nonce' ),
-	'delay'    => (int) get_option( 'aatg_bulk_delay', 2 ),
-) );
-
+	if ( ! in_array( $hook, $dashboard_hooks, true ) ) {
+		return;
 	}
+
+	wp_enqueue_style(
+		'aatg-dashboard-style',
+		plugin_dir_url( __FILE__ ) . 'aatg-dashboard.css',
+		array(),
+		'1.0'
+	);
+
+	wp_enqueue_script(
+		'aatg-dashboard-tabs',
+		plugin_dir_url( __FILE__ ) . 'aatg-dashboard.js',
+		array(),
+		'1.0',
+		true
+	);
+
+	wp_enqueue_script(
+		'aatg-bulk-script',
+		plugin_dir_url( __FILE__ ) . 'aatg-bulk.js',
+		array( 'jquery' ),
+		'1.3',
+		true
+	);
+
+	wp_localize_script( 'aatg-bulk-script', 'aatg_bulk_ajax', array(
+		'ajax_url' => admin_url( 'admin-ajax.php' ),
+		'nonce'    => wp_create_nonce( 'aatg_nonce' ),
+		'delay'    => (int) get_option( 'aatg_bulk_delay', 3 ),
+	) );
 }
-add_action( 'admin_enqueue_scripts', 'aatg_enqueue_bulk_script' );
+add_action( 'admin_enqueue_scripts', 'aatg_enqueue_dashboard_assets' );
 
 /**
  * AJAX – generate alt text & title on demand.
@@ -751,7 +969,10 @@ function aatg_generate_alt_text_ajax() {
 	}
 
 	$attachment_id = absint( $_POST['attachment_id'] );
-	aatg_generate_text_and_title( $attachment_id );
+	$result = aatg_generate_text_and_title( $attachment_id );
+	if ( is_wp_error( $result ) ) {
+		wp_send_json_error( $result->get_error_message() );
+	}
 
 	$alt   = get_post_meta( $attachment_id, '_wp_attachment_image_alt', true );
 	$post  = get_post( $attachment_id );
@@ -763,6 +984,7 @@ function aatg_generate_alt_text_ajax() {
 		wp_send_json_success( array(
 			'alt_text'    => $alt,
 			'image_title' => $title,
+			'warning'     => $result['warning'],
 		) );
 	}
 }
@@ -773,7 +995,7 @@ add_action( 'wp_ajax_aatg_generate_alt_text_ajax', 'aatg_generate_alt_text_ajax'
 ============================================================================= */
 
 /**
- * AJAX – bulk‑update alt text for images without it (five per batch).
+ * AJAX – bulk‑update alt text for images without it (configurable batch size).
  * Sends optional debug data to JS **and** appends the same info to
  * wp‑content/uploads/aatg‑logs/bulk-debug.log
  */
@@ -792,84 +1014,67 @@ function aatg_bulk_update_ajax() {
 		'fields'         => 'ids',
 	);
 
-	/* -------- first query: meta key completely missing ---------- */
-	$ids_no_meta = get_posts( $base + array(
-		'meta_query'     => array(
+	$batch_size = max( 1, (int) get_option( 'aatg_bulk_batch_size', 4 ) );
+	$meta_query = array(
+		'relation' => 'OR',
+		array(
+			'key'     => '_wp_attachment_image_alt',
+			'compare' => 'NOT EXISTS',
+		),
+		array(
+			'relation' => 'OR',
 			array(
 				'key'     => '_wp_attachment_image_alt',
-				'compare' => 'NOT EXISTS',
+				'value'   => '',
+				'compare' => '=',
 			),
-		),
-		'posts_per_page' => 5,          // we only need up to 5 per pass
-	) );
-
-	/* -------- second query: key exists but value blank/whitespace */
-	$ids_blank = get_posts( $base + array(
-		'meta_query'     => array(
 			array(
-				'relation' => 'OR',
-				array(
-					'key'     => '_wp_attachment_image_alt',
-					'value'   => '',
-					'compare' => '=',
-				),
-				array(
-					'key'     => '_wp_attachment_image_alt',
-					'value'   => '^\s*$',
-					'compare' => 'REGEXP',
-				),
+				'key'     => '_wp_attachment_image_alt',
+				'value'   => '^\\s*$',
+				'compare' => 'REGEXP',
 			),
 		),
-		'posts_per_page' => 5,
+	);
+
+	$batch_ids = get_posts( $base + array(
+		'meta_query'     => $meta_query,
+		'posts_per_page' => $batch_size,
 	) );
 
-	/* -------- merge and take up to five unique IDs -------------- */
-	$batch_ids = array_slice( array_unique( array_merge( $ids_no_meta, $ids_blank ) ), 0, 5 );
-
-	$processed = 0;
+	$processed_success = 0;
+	$issues    = array();
 	foreach ( $batch_ids as $att_id ) {
-		aatg_generate_text_and_title( $att_id );
-		$processed++;
+		$result = aatg_generate_text_and_title( $att_id );
+		if ( is_wp_error( $result ) ) {
+			$issues[] = array(
+				'attachment_id' => $att_id,
+				'type'          => 'error',
+				'message'       => $result->get_error_message(),
+			);
+		} elseif ( ! empty( $result['warning'] ) ) {
+			$issues[] = array(
+				'attachment_id' => $att_id,
+				'type'          => 'warning',
+				'message'       => $result['warning'],
+			);
+		}
+		$processed_success++;
 	}
 
-	/* -------- remaining count: run both queries with found_rows -- */
-	$count_no_meta = new WP_Query( $base + array(
-		'meta_query'     => array(
-			array(
-				'key'     => '_wp_attachment_image_alt',
-				'compare' => 'NOT EXISTS',
-			),
-		),
+	/* -------- remaining count: use a single query to avoid double counting -- */
+	$count_query = new WP_Query( $base + array(
+		'meta_query'     => $meta_query,
 		'posts_per_page' => 1,
 		'no_found_rows'  => false,
 	) );
-	$count_blank    = new WP_Query( $base + array(
-		'meta_query'     => array(
-			array(
-				'relation' => 'OR',
-				array(
-					'key'     => '_wp_attachment_image_alt',
-					'value'   => '',
-					'compare' => '=',
-				),
-				array(
-					'key'     => '_wp_attachment_image_alt',
-					'value'   => '^\s*$',
-					'compare' => 'REGEXP',
-				),
-			),
-		),
-		'posts_per_page' => 1,
-		'no_found_rows'  => false,
-	) );
-	$remaining = (int) $count_no_meta->found_posts + (int) $count_blank->found_posts;
+	$remaining = (int) $count_query->found_posts;
 	wp_reset_postdata();
 
 	/* -------- debug + response ---------------------------------- */
 	$debug = array(
 		'batch_ids'     => $batch_ids,
-		'no_meta_sql'   => $count_no_meta->request,
-		'blank_sql'     => $count_blank->request,
+		'query_sql'     => $count_query->request,
+		'batch_size'    => $batch_size,
 	);
 
 	if ( function_exists( 'aatg_write_log' ) ) {
@@ -877,9 +1082,10 @@ function aatg_bulk_update_ajax() {
 	}
 
 	wp_send_json_success( array(
-		'processed' => $processed,
+		'processed' => $processed_success,
 		'remaining' => $remaining,
 		'debug'     => $debug,
+		'issues'    => $issues,
 	) );
 }
 

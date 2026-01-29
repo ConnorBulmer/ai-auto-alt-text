@@ -14,6 +14,10 @@ jQuery( function ( $ ) {
 	const $container = $( '#aatg-bulk-progress-container' );
 	const $bar       = $( '#aatg-bulk-progress' );
 	const $text      = $( '#aatg-bulk-progress-text' );
+	const $log       = $( '#aatg-bulk-log' );
+	const $logList   = $( '#aatg-bulk-log-entries' );
+	const $logTitle  = $( '#aatg-bulk-log-summary' );
+	let logCount     = 0;
 
 	/* ------------------------------------------------------------------ */
 	/*  Start button                                                      */
@@ -25,8 +29,12 @@ jQuery( function ( $ ) {
 
 		completed = 0;
 		total     = null;
+		logCount  = 0;
 
 		$( '#aatg-bulk-status' ).hide();
+		$log.hide();
+		$logList.empty();
+		updateLogSummary();
 		$container.show();
 		$bar.val( 0 );
 		$text.text( 'Initialising…' );
@@ -51,10 +59,15 @@ jQuery( function ( $ ) {
 
 			const processed = res.data.processed;
 			const remaining = res.data.remaining;
+			const issues = Array.isArray( res.data.issues ) ? res.data.issues : [];
 
 			if ( total === null ) {
 				total = processed + remaining;
 				$bar.attr( 'max', total );
+			}
+
+			if ( issues.length ) {
+				appendIssues( issues );
 			}
 
 			completed += processed;
@@ -78,6 +91,11 @@ jQuery( function ( $ ) {
 	/* ------------------------------------------------------------------ */
 	function handleError( msg ) {
 		$text.text( 'Error: ' + msg );
+		appendIssues( [ {
+			attachment_id: null,
+			type: 'error',
+			message: msg
+		} ] );
 		resetButton();
 	}
 
@@ -85,10 +103,23 @@ jQuery( function ( $ ) {
 		running = false;
 		$btn.prop( 'disabled', false );
 	}
-} );
 
-function handleError( msg ) {
-    $text.text( 'Error: ' + msg );
-    + console.error( 'aatg ⇢ bulk error', msg );   // ← NEW
-    resetButton();
-}
+	function appendIssues( issues ) {
+		issues.forEach( ( issue ) => {
+			const idText = issue.attachment_id ? `#${ issue.attachment_id }` : 'Batch';
+			const label = issue.type === 'warning' ? 'Warning' : 'Error';
+			const entry = $( '<div />' ).html(
+				`<strong>${ label } ${ idText }:</strong> ${ issue.message }`
+			);
+			$logList.append( entry );
+			logCount += 1;
+		} );
+
+		$log.show();
+		updateLogSummary();
+	}
+
+	function updateLogSummary() {
+		$logTitle.text( `Bulk update log (${ logCount } item${ logCount === 1 ? '' : 's' })` );
+	}
+} );
