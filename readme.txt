@@ -44,6 +44,11 @@ This solution is far cheaper than many alternatives because it cuts out the midd
    * (Optional) The returned title is stored as the attachment post title.
 4. Nothing is cached or stored on OpenAI’s side; only the final strings live in your database.
 
+== Screenshots ==
+
+1. Plugin settings page for configuring automatic image alt text generation, OpenAI model selection, and accessibility-focused image options.
+2. Bulk Alt Text Updater processing existing Media Library images in batches with live progress and rate-limit controls.
+
 == Installation ==
 
 1. Upload the plugin folder to `/wp-content/plugins/ai-auto-alt-text-generator` **or** install via **Plugins → Add New**.  
