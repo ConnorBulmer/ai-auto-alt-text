@@ -25,7 +25,7 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 - Bulk update tool for existing images with options to add delay to avoid rate limits
 - Choose the image size and visual detail level to send
 - Provide optional site-wide context to improve results
-- **NEW**: Optionally include the image file name in the prompt
+- Optionally include the image file name in the prompt
 - Choose between GPT-4o mini and GPT 5 Mini/Nano (BETA) models
 - Uses OpenAI vision-capable models (text + image input)
 - Lightweight and privacy-conscious — no third-party servers involved except OpenAI

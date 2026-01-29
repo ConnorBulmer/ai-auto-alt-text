@@ -148,6 +148,12 @@ register_setting( 'aatg_options_group', 'aatg_bulk_delay', array(
 		'default'           => 4,
 	) );
 
+	register_setting( 'aatg_options_group', 'aatg_bulk_batch_size', array(
+		'type'              => 'integer',
+		'sanitize_callback' => 'absint',
+		'default'           => 4,
+	) );
+
 /* language selection ------------------------------------------------------- */
 register_setting( 'aatg_options_group', 'aatg_language', array(
 	'type'              => 'string',
@@ -162,6 +168,13 @@ register_setting( 'aatg_options_group', 'aatg_language', array(
 		'aatg_settings_section',
 		__( 'Alt Text Generator Settings', 'ai-auto-alt-text-generator' ),
 		'aatg_section_callback',
+		'aatg-settings'
+	);
+
+	add_settings_section(
+		'aatg_rate_limit_section',
+		__( 'Performance & Rate Limits', 'ai-auto-alt-text-generator' ),
+		'aatg_rate_limit_section_callback',
 		'aatg-settings'
 	);
 
