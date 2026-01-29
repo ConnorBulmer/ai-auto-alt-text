@@ -9,12 +9,25 @@ document.addEventListener( 'DOMContentLoaded', () => {
 	const defaultTab = root.dataset.defaultTab || 'settings';
 	const noticeContainer = root.querySelector( '.aatg-notices' );
 
-	if ( noticeContainer ) {
-		const notices = Array.from( root.querySelectorAll( '.notice' ) );
+	const moveNotices = () => {
+		if ( ! noticeContainer ) {
+			return;
+		}
+
+		const notices = Array.from( document.querySelectorAll( '.notice' ) );
 		notices.forEach( ( notice ) => {
+			if ( noticeContainer.contains( notice ) ) {
+				return;
+			}
+
 			noticeContainer.appendChild( notice );
 		} );
-	}
+	};
+
+	moveNotices();
+
+	const observer = new MutationObserver( moveNotices );
+	observer.observe( root, { childList: true, subtree: true } );
 
 	const activateTab = ( tabName ) => {
 		tabs.forEach( ( tab ) => {
