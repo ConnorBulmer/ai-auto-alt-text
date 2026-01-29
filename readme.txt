@@ -2,8 +2,8 @@
 Contributors: connorbulmer
 Tags: alt text, accessibility, seo, images, ai
 Requires at least: 5.5
-Tested up to: 6.8
-Stable tag: 1.17
+Tested up to: 6.9
+Stable tag: 1.18
 Requires PHP: 7.4
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -82,6 +82,12 @@ GPT-4o mini by default, with GPT 5 Mini and GPT 5 Nano (BETA) available in setti
 By default, the bulk page requires the `manage_options` capability (typically Administrators). You can change this in code to `upload_files` if you want Editors with media permissions to run it.
 
 == Changelog ==
+
+= 1.18 = 2026-01-28
+* **New:** Branded tabbed dashboard with Settings, Bulk Updater, and Integrations.
+* **New:** Bulk updater log for per-image warnings/errors in the UI.
+* **Improved:** Clearer OpenAI error handling surfaced to users.
+* **Fixed:** Trim stray leading quotes from generated alt text and titles.
 
 = 1.17 =
 * **New:** OpenAI model selector with GPT-4o mini default and GPT 5 Mini/Nano (BETA) options.
