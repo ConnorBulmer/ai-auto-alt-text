@@ -56,18 +56,22 @@ This solution is far cheaper than many alternatives because it cuts out the midd
 * **OpenAI API Key** – Required to connect to GPT-4o.  
 * **OpenAI Model** – GPT-4o mini (default), GPT 5 Mini (BETA), or GPT 5 Nano (BETA).  
 * **Image Size to Send** – Thumbnail, Medium, Large, or Full.  
-* **Image Detail Quality** – ‘Low’ or ‘High’.  
+* **Image Detail Quality** – ‘Low’ or ‘High’ (Low uses fewer tokens).  
+* **Bulk batch size** – Number of images per batch (lower values reduce rate-limit risk).  
 * **Site Context** – Optional free-form prompt guidance (brand voice, niche, etc.).  
 * **Send Image File Name** – Include file name in the prompt for extra context.  
 * **Automatically Generate Title** – Add descriptive titles alongside alt text.  
 * **Use full context for image titles** – When enabled, title generation includes site context and file name (uses more tokens).  
-* **Bulk optimiser delay (seconds)** – Pause between five-image batches during bulk runs.  
+* **Bulk optimiser delay (seconds)** – Pause between batches during bulk runs.  
 * **Output Language** – Default English (US). Choose English (UK) for British spellings or another popular language; outputs (alt text and titles) will be generated in the selected language.
 
 == Frequently Asked Questions ==
 
 = What data is sent to OpenAI? =  
 The publicly accessible image URL, plus any optional context you enable: image file name, site-wide context, and the parent post/page title.
+
+= What if I see a 429 rate limit error? =  
+Try lowering the bulk batch size, increasing the bulk delay, switching Image Detail Quality to **Low**, and shortening site context if it’s very long.
 
 = Does OpenAI store my images or text? =  
 No. The OpenAI API returns a response and does not retain your data. The plugin itself stores only the generated alt text and title in your WordPress database.
@@ -87,6 +91,8 @@ By default, the bulk page requires the `manage_options` capability (typically Ad
 * **New:** Branded tabbed dashboard with Settings, Bulk Updater, and Integrations.
 * **New:** Bulk updater log for per-image warnings/errors in the UI.
 * **Improved:** Clearer OpenAI error handling surfaced to users.
+* **Improved:** Rate-limit controls (batch size + delay) and low detail default.
+* **Fixed:** Bulk counter no longer double-counts missing/blank alt text.
 * **Fixed:** Trim stray leading quotes from generated alt text and titles.
 
 = 1.17 =

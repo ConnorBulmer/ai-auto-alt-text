@@ -64,6 +64,8 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 | **OpenAI Model**                 | GPT-4o mini (default), GPT 5 Mini (BETA), or GPT 5 Nano (BETA) |
 | **Image Size to Send**           | Thumbnail, Medium, Large, or Full |
 | **Image Detail Quality**         | Send ‘low’ or ‘high’ image detail |
+| **Bulk Batch Size**              | Number of images per bulk batch (lower to reduce rate-limit risk) |
+| **Bulk Delay (seconds)**         | Pause between batches to avoid rate limits |
 | **Site Context**                 | Optional (but recommended)  prompt hint (e.g. about your company/website, your brand voice or industry) |
 | **Send Image File Name**         | Includes file name (e.g. `products-summer.jpg`) in prompt |
 | **Automatically Generate Title** | Create SEO-friendly titles for images |
@@ -74,7 +76,7 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 
 - **Media Library:** Each image gains a “Generate Alt Text & Title” button
 - **Bulk Tool:** Found under **Tools → Bulk Alt Text Update**  
-  Processes images without alt text in batches of five, with a progress bar
+  Processes images without alt text in configurable batches, with a progress bar
 
 ---
 
@@ -84,6 +86,8 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 - 🎨 New branded tabbed dashboard with Settings, Bulk Updater, and Integrations panels
 - 🧾 Bulk updater now includes a scrollable error/warning log per image
 - 🧯 Improved OpenAI error handling surfaced in the UI
+- 🚦 Added rate-limit controls (batch size + delay) and set image detail to Low by default
+- 🧮 Fixed bulk counter to avoid double counting images without alt text
 - ✂️ Trims stray leading quotes from generated alt text and titles
 
 ## 1.17 2025-09-09
@@ -171,6 +175,9 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 ---
 
 ## ❓ FAQ
+
+### What if I see a 429 rate limit error?
+Try reducing the bulk batch size, increasing the bulk delay, switching Image Detail Quality to **Low**, and shortening any site context or prompts that are overly long.
 
 ### Does this store anything externally?
 No — images are passed to OpenAI by URL only, and never stored. Your data remains private.

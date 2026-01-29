@@ -23,6 +23,10 @@
 	box-shadow: 0 12px 30px rgba( 5, 42, 78, 0.2 );
 }
 
+.aatg-notices .notice {
+	margin: 16px 0;
+}
+
 .aatg-hero-brand {
 	display: flex;
 	align-items: center;

@@ -106,7 +106,7 @@ function aatg_register_settings_init() {
 	register_setting( 'aatg_options_group', 'aatg_image_detail', array(
 		'type'              => 'string',
 		'sanitize_callback' => 'sanitize_text_field',
-		'default'           => 'high',
+		'default'           => 'low',
 	) );
 
 	register_setting( 'aatg_options_group', 'aatg_site_context', array(
@@ -139,8 +139,14 @@ register_setting( 'aatg_options_group', 'aatg_title_full_context', array(
 register_setting( 'aatg_options_group', 'aatg_bulk_delay', array(
 	'type'              => 'integer',
 	'sanitize_callback' => 'absint',
-	'default'           => 2,          // ← new default
+	'default'           => 3,
 ) );
+
+	register_setting( 'aatg_options_group', 'aatg_bulk_batch_size', array(
+		'type'              => 'integer',
+		'sanitize_callback' => 'absint',
+		'default'           => 4,
+	) );
 
 /* language selection ------------------------------------------------------- */
 register_setting( 'aatg_options_group', 'aatg_language', array(
@@ -156,6 +162,13 @@ register_setting( 'aatg_options_group', 'aatg_language', array(
 		'aatg_settings_section',
 		__( 'Alt Text Generator Settings', 'ai-auto-alt-text-generator' ),
 		'aatg_section_callback',
+		'aatg-settings'
+	);
+
+	add_settings_section(
+		'aatg_rate_limit_section',
+		__( 'Performance & Rate Limits', 'ai-auto-alt-text-generator' ),
+		'aatg_rate_limit_section_callback',
 		'aatg-settings'
 	);
 
@@ -188,7 +201,7 @@ register_setting( 'aatg_options_group', 'aatg_language', array(
 		__( 'Image Detail Quality', 'ai-auto-alt-text-generator' ),
 		'aatg_image_detail_render',
 		'aatg-settings',
-		'aatg_settings_section'
+		'aatg_rate_limit_section'
 	);
 
 	add_settings_field(
@@ -225,12 +238,20 @@ register_setting( 'aatg_options_group', 'aatg_language', array(
 	);
 
 	add_settings_field(
-	'aatg_bulk_delay',
-	__( 'Bulk optimiser delay (seconds)', 'ai-auto-alt-text-generator' ),
-	'aatg_bulk_delay_render',
-	'aatg-settings',
-	'aatg_settings_section'
-);
+		'aatg_bulk_delay',
+		__( 'Bulk optimiser delay (seconds)', 'ai-auto-alt-text-generator' ),
+		'aatg_bulk_delay_render',
+		'aatg-settings',
+		'aatg_rate_limit_section'
+	);
+
+	add_settings_field(
+		'aatg_bulk_batch_size',
+		__( 'Bulk batch size', 'ai-auto-alt-text-generator' ),
+		'aatg_bulk_batch_size_render',
+		'aatg-settings',
+		'aatg_rate_limit_section'
+	);
 
 add_settings_field(
 	'aatg_language',
@@ -249,7 +270,14 @@ add_action( 'admin_init', 'aatg_register_settings_init' );
  * Settings–section description.
  */
 function aatg_section_callback() {
-	echo '<p>' . esc_html__( 'Enter your API key, choose the OpenAI model, select the image size and detail quality, decide whether to send the image file name for extra context, provide optional site context, and choose whether to automatically generate an image title.', 'ai-auto-alt-text-generator' ) . '</p>';
+	echo '<p>' . esc_html__( 'Enter your API key, choose the OpenAI model, select the image size, decide whether to send the image file name for extra context, provide optional site context, and choose whether to automatically generate an image title.', 'ai-auto-alt-text-generator' ) . '</p>';
+}
+
+/**
+ * Rate limit section description.
+ */
+function aatg_rate_limit_section_callback() {
+	echo '<p>' . esc_html__( 'Tune these settings to reduce token usage and avoid rate limits during bulk runs.', 'ai-auto-alt-text-generator' ) . '</p>';
 }
 
 /* ---------- individual field render callbacks ---------- */
@@ -298,7 +326,7 @@ function aatg_image_size_render() {
 }
 
 function aatg_image_detail_render() {
-	$current = get_option( 'aatg_image_detail', 'high' );
+	$current = get_option( 'aatg_image_detail', 'low' );
 	$opts    = array(
 		'high' => __( 'High', 'ai-auto-alt-text-generator' ),
 		'low'  => __( 'Low', 'ai-auto-alt-text-generator' ),
@@ -312,6 +340,9 @@ function aatg_image_detail_render() {
 		);
 	}
 	echo '</select>';
+	echo ' <span class="description">' .
+	     esc_html__( 'Low uses fewer tokens and is usually sufficient; switch to High for detailed images at higher cost.', 'ai-auto-alt-text-generator' ) .
+	     '</span>';
 }
 
 function aatg_site_context_render() {
@@ -344,13 +375,24 @@ function aatg_title_full_context_render() {
 }
 
 function aatg_bulk_delay_render() {
-	$delay = get_option( 'aatg_bulk_delay', 2 );
+	$delay = get_option( 'aatg_bulk_delay', 3 );
 	printf(
 		'<input type="number" min="0" id="aatg_bulk_delay" name="aatg_bulk_delay" value="%d" style="width:70px;" />',
 		(int) $delay
 	);
 	echo ' <span class="description">' .
-	     esc_html__( 'Seconds to wait between each five‑image batch during a bulk run.', 'ai-auto-alt-text-generator' ) .
+	     esc_html__( 'Seconds to wait between each batch during a bulk run. Increase this if you hit 429 rate limits.', 'ai-auto-alt-text-generator' ) .
+	     '</span>';
+}
+
+function aatg_bulk_batch_size_render() {
+	$size = get_option( 'aatg_bulk_batch_size', 4 );
+	printf(
+		'<input type="number" min="1" max="10" id="aatg_bulk_batch_size" name="aatg_bulk_batch_size" value="%d" style="width:70px;" />',
+		(int) $size
+	);
+	echo ' <span class="description">' .
+	     esc_html__( 'Number of images per batch (lower values reduce rate-limit risk).', 'ai-auto-alt-text-generator' ) .
 	     '</span>';
 }
 
@@ -369,17 +411,19 @@ function aatg_render_bulk_page() {
 function aatg_render_bulk_panel() { ?>
 	<?php
 	// Calculate the delay and output the explanatory paragraph.
-	$delay = (int) get_option( 'aatg_bulk_delay', 2 );
+	$delay      = (int) get_option( 'aatg_bulk_delay', 3 );
+	$batch_size = (int) get_option( 'aatg_bulk_batch_size', 4 );
 
 	printf(
 		'<p>%s</p>',
 		sprintf(
-			/* translators: %d = seconds */
+			/* translators: %1$d = seconds, %2$d = batch size */
 			esc_html__(
-				'This tool processes images without alt text in batches of five, pausing %d seconds between batches.',
+				'This tool processes images without alt text in batches of %2$d, pausing %1$d seconds between batches.',
 				'ai-auto-alt-text-generator'
 			),
-			$delay
+			$delay,
+			$batch_size
 		)
 	);
 	?>
@@ -408,6 +452,7 @@ function aatg_render_dashboard_page( $active_tab = 'settings' ) {
 	$logo_url = plugin_dir_url( __FILE__ ) . 'logo.png';
 	?>
 	<div class="wrap aatg-dashboard" data-default-tab="<?php echo esc_attr( $active_tab ); ?>">
+		<div class="aatg-notices"></div>
 		<div class="aatg-hero">
 			<div class="aatg-hero-brand">
 				<img class="aatg-logo" src="<?php echo esc_url( $logo_url ); ?>" alt="<?php esc_attr_e( 'AI Auto Alt Text Generator logo', 'ai-auto-alt-text-generator' ); ?>" />
@@ -554,7 +599,7 @@ function aatg_generate_alt_text( $post_ID ) {
 				'type'      => 'image_url',
 				'image_url' => array(
 					'url'    => $image_url,
-					'detail' => get_option( 'aatg_image_detail', 'high' ),
+					'detail' => get_option( 'aatg_image_detail', 'low' ),
 				),
 			),
 		),
@@ -666,7 +711,7 @@ function aatg_generate_image_title( $post_ID ) {
 				'type'      => 'image_url',
 				'image_url' => array(
 					'url'    => $image_url,
-					'detail' => get_option( 'aatg_image_detail', 'high' ),
+					'detail' => get_option( 'aatg_image_detail', 'low' ),
 				),
 			),
 		),
@@ -903,7 +948,7 @@ function aatg_enqueue_dashboard_assets( $hook ) {
 	wp_localize_script( 'aatg-bulk-script', 'aatg_bulk_ajax', array(
 		'ajax_url' => admin_url( 'admin-ajax.php' ),
 		'nonce'    => wp_create_nonce( 'aatg_nonce' ),
-		'delay'    => (int) get_option( 'aatg_bulk_delay', 2 ),
+		'delay'    => (int) get_option( 'aatg_bulk_delay', 3 ),
 	) );
 }
 add_action( 'admin_enqueue_scripts', 'aatg_enqueue_dashboard_assets' );
@@ -950,7 +995,7 @@ add_action( 'wp_ajax_aatg_generate_alt_text_ajax', 'aatg_generate_alt_text_ajax'
 ============================================================================= */
 
 /**
- * AJAX – bulk‑update alt text for images without it (five per batch).
+ * AJAX – bulk‑update alt text for images without it (configurable batch size).
  * Sends optional debug data to JS **and** appends the same info to
  * wp‑content/uploads/aatg‑logs/bulk-debug.log
  */
@@ -969,41 +1014,34 @@ function aatg_bulk_update_ajax() {
 		'fields'         => 'ids',
 	);
 
-	/* -------- first query: meta key completely missing ---------- */
-	$ids_no_meta = get_posts( $base + array(
-		'meta_query'     => array(
+	$batch_size = max( 1, (int) get_option( 'aatg_bulk_batch_size', 4 ) );
+	$meta_query = array(
+		'relation' => 'OR',
+		array(
+			'key'     => '_wp_attachment_image_alt',
+			'compare' => 'NOT EXISTS',
+		),
+		array(
+			'relation' => 'OR',
 			array(
 				'key'     => '_wp_attachment_image_alt',
-				'compare' => 'NOT EXISTS',
+				'value'   => '',
+				'compare' => '=',
 			),
-		),
-		'posts_per_page' => 5,          // we only need up to 5 per pass
-	) );
-
-	/* -------- second query: key exists but value blank/whitespace */
-	$ids_blank = get_posts( $base + array(
-		'meta_query'     => array(
 			array(
-				'relation' => 'OR',
-				array(
-					'key'     => '_wp_attachment_image_alt',
-					'value'   => '',
-					'compare' => '=',
-				),
-				array(
-					'key'     => '_wp_attachment_image_alt',
-					'value'   => '^\s*$',
-					'compare' => 'REGEXP',
-				),
+				'key'     => '_wp_attachment_image_alt',
+				'value'   => '^\\s*$',
+				'compare' => 'REGEXP',
 			),
 		),
-		'posts_per_page' => 5,
+	);
+
+	$batch_ids = get_posts( $base + array(
+		'meta_query'     => $meta_query,
+		'posts_per_page' => $batch_size,
 	) );
 
-	/* -------- merge and take up to five unique IDs -------------- */
-	$batch_ids = array_slice( array_unique( array_merge( $ids_no_meta, $ids_blank ) ), 0, 5 );
-
-	$processed = 0;
+	$processed_success = 0;
 	$issues    = array();
 	foreach ( $batch_ids as $att_id ) {
 		$result = aatg_generate_text_and_title( $att_id );
@@ -1020,47 +1058,23 @@ function aatg_bulk_update_ajax() {
 				'message'       => $result['warning'],
 			);
 		}
-		$processed++;
+		$processed_success++;
 	}
 
-	/* -------- remaining count: run both queries with found_rows -- */
-	$count_no_meta = new WP_Query( $base + array(
-		'meta_query'     => array(
-			array(
-				'key'     => '_wp_attachment_image_alt',
-				'compare' => 'NOT EXISTS',
-			),
-		),
+	/* -------- remaining count: use a single query to avoid double counting -- */
+	$count_query = new WP_Query( $base + array(
+		'meta_query'     => $meta_query,
 		'posts_per_page' => 1,
 		'no_found_rows'  => false,
 	) );
-	$count_blank    = new WP_Query( $base + array(
-		'meta_query'     => array(
-			array(
-				'relation' => 'OR',
-				array(
-					'key'     => '_wp_attachment_image_alt',
-					'value'   => '',
-					'compare' => '=',
-				),
-				array(
-					'key'     => '_wp_attachment_image_alt',
-					'value'   => '^\s*$',
-					'compare' => 'REGEXP',
-				),
-			),
-		),
-		'posts_per_page' => 1,
-		'no_found_rows'  => false,
-	) );
-	$remaining = (int) $count_no_meta->found_posts + (int) $count_blank->found_posts;
+	$remaining = (int) $count_query->found_posts;
 	wp_reset_postdata();
 
 	/* -------- debug + response ---------------------------------- */
 	$debug = array(
 		'batch_ids'     => $batch_ids,
-		'no_meta_sql'   => $count_no_meta->request,
-		'blank_sql'     => $count_blank->request,
+		'query_sql'     => $count_query->request,
+		'batch_size'    => $batch_size,
 	);
 
 	if ( function_exists( 'aatg_write_log' ) ) {
@@ -1068,7 +1082,7 @@ function aatg_bulk_update_ajax() {
 	}
 
 	wp_send_json_success( array(
-		'processed' => $processed,
+		'processed' => $processed_success,
 		'remaining' => $remaining,
 		'debug'     => $debug,
 		'issues'    => $issues,

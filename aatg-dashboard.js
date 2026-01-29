@@ -7,6 +7,14 @@ document.addEventListener( 'DOMContentLoaded', () => {
 	const tabs = Array.from( root.querySelectorAll( '[data-aatg-tab]' ) );
 	const panels = Array.from( root.querySelectorAll( '[data-aatg-panel]' ) );
 	const defaultTab = root.dataset.defaultTab || 'settings';
+	const noticeContainer = root.querySelector( '.aatg-notices' );
+
+	if ( noticeContainer ) {
+		const notices = Array.from( root.querySelectorAll( '.notice' ) );
+		notices.forEach( ( notice ) => {
+			noticeContainer.appendChild( notice );
+		} );
+	}
 
 	const activateTab = ( tabName ) => {
 		tabs.forEach( ( tab ) => {
