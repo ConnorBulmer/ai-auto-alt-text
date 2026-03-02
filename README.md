@@ -8,8 +8,8 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 
 **Plugin Name:** AI Auto Alt Text Generator   
 **Author:** [Connor Bulmer](https://connorbulmer.co.uk)   
-**Version:** 1.18   
-**Stable tag:** 1.18   
+**Version:** 1.19   
+**Stable tag:** 1.19   
 **Tested up to:** WordPress 6.9   
 **Requires at least:** WordPress 5.5   
 **License:** GPL v3 or later   
@@ -69,6 +69,7 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 | **Site Context**                 | Optional (but recommended)  prompt hint (e.g. about your company/website, your brand voice or industry) |
 | **Send Image File Name**         | Includes file name (e.g. `products-summer.jpg`) in prompt |
 | **Automatically Generate Title** | Create SEO-friendly titles for images |
+| **OpenAI Request Timeout (seconds)** | Max wait time for OpenAI responses (10–120s, default 30s) |
 
 ---
 
@@ -81,6 +82,11 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 ---
 
 ## 📦 Changelog
+
+## 1.19 2026-02-02
+- ⏱️ Added configurable OpenAI request timeout setting (10–120 seconds, default 30)
+- 🔁 OpenAI requests now retry once after timeout with an extended timeout window
+- 🛟 Reduces transient `cURL error 28` timeout failures during alt text/title generation
 
 ## 1.18 2026-01-28
 - 🎨 New branded tabbed dashboard with Settings, Bulk Updater, and Integrations panels

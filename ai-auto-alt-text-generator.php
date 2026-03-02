@@ -3,7 +3,7 @@
  * Plugin Name: AI Auto Alt Text Generator
  * Plugin URI:  https://github.com/ConnorBulmer/ai-auto-alt-text/
  * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT‑4o mini vision model, improving accessibility and SEO.
- * Version:     1.18
+ * Version:     1.19
  * Requires at least: 5.5
  * Tested up to: 6.9
  * Requires PHP: 7.4
@@ -142,6 +142,12 @@ register_setting( 'aatg_options_group', 'aatg_bulk_delay', array(
 	'default'           => 3,
 ) );
 
+register_setting( 'aatg_options_group', 'aatg_request_timeout', array(
+	'type'              => 'integer',
+	'sanitize_callback' => 'absint',
+	'default'           => 30,
+) );
+
 	register_setting( 'aatg_options_group', 'aatg_bulk_batch_size', array(
 		'type'              => 'integer',
 		'sanitize_callback' => 'absint',
@@ -262,6 +268,14 @@ register_setting( 'aatg_options_group', 'aatg_language', array(
 		'aatg_bulk_batch_size',
 		__( 'Bulk batch size', 'ai-auto-alt-text-generator' ),
 		'aatg_bulk_batch_size_render',
+		'aatg-settings',
+		'aatg_rate_limit_section'
+	);
+
+	add_settings_field(
+		'aatg_request_timeout',
+		__( 'OpenAI request timeout (seconds)', 'ai-auto-alt-text-generator' ),
+		'aatg_request_timeout_render',
 		'aatg-settings',
 		'aatg_rate_limit_section'
 	);
@@ -407,6 +421,63 @@ function aatg_bulk_batch_size_render() {
 	echo ' <span class="description">' .
 	     esc_html__( 'Number of images per batch (lower values reduce rate-limit risk).', 'ai-auto-alt-text-generator' ) .
 	     '</span>';
+}
+
+function aatg_request_timeout_render() {
+	$timeout = aatg_get_request_timeout();
+	printf(
+		'<input type="number" min="10" max="120" id="aatg_request_timeout" name="aatg_request_timeout" value="%d" style="width:80px;" />',
+		(int) $timeout
+	);
+	echo ' <span class="description">' .
+	     esc_html__( 'How long to wait for OpenAI responses before WordPress aborts the request.', 'ai-auto-alt-text-generator' ) .
+	     '</span>';
+}
+
+function aatg_get_request_timeout() {
+	$timeout = (int) get_option( 'aatg_request_timeout', 30 );
+
+	if ( $timeout < 10 ) {
+		$timeout = 10;
+	}
+
+	if ( $timeout > 120 ) {
+		$timeout = 120;
+	}
+
+	return $timeout;
+}
+
+function aatg_is_timeout_error( $response ) {
+	if ( ! is_wp_error( $response ) ) {
+		return false;
+	}
+
+	$message = strtolower( $response->get_error_message() );
+	return strpos( $message, 'timed out' ) !== false || strpos( $message, 'timeout' ) !== false;
+}
+
+function aatg_openai_chat_completion_request( $payload, $api_key, $context ) {
+	$timeout = aatg_get_request_timeout();
+
+	$args = array(
+		'headers' => array(
+			'Content-Type'  => 'application/json',
+			'Authorization' => 'Bearer ' . $api_key,
+		),
+		'body'    => wp_json_encode( $payload ),
+		'timeout' => $timeout,
+	);
+
+	$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', $args );
+	if ( ! aatg_is_timeout_error( $response ) ) {
+		return $response;
+	}
+
+	$args['timeout'] = min( 120, $timeout + 15 );
+	aatg_write_log( sprintf( 'Retrying %s request after timeout. First timeout: %d s, retry timeout: %d s.', $context, $timeout, $args['timeout'] ) );
+
+	return wp_remote_post( 'https://api.openai.com/v1/chat/completions', $args );
 }
 
 
@@ -623,16 +694,7 @@ function aatg_generate_alt_text( $post_ID ) {
 		'messages' => $messages,
 	);
 
-	$args = array(
-		'headers' => array(
-			'Content-Type'  => 'application/json',
-			'Authorization' => 'Bearer ' . $api_key,
-		),
-		'body'    => wp_json_encode( $payload ),
-		'timeout' => 15,
-	);
-
-	$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', $args );
+	$response = aatg_openai_chat_completion_request( $payload, $api_key, 'alt text' );
 	if ( is_wp_error( $response ) ) {
 		aatg_log_api_error( 'alt text', $response );
 		return $response;
@@ -735,16 +797,7 @@ function aatg_generate_image_title( $post_ID ) {
 		'messages' => $messages,
 	);
 
-	$args = array(
-		'headers' => array(
-			'Content-Type'  => 'application/json',
-			'Authorization' => 'Bearer ' . $api_key,
-		),
-		'body'    => wp_json_encode( $payload ),
-		'timeout' => 15,
-	);
-
-	$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', $args );
+	$response = aatg_openai_chat_completion_request( $payload, $api_key, 'title' );
 	if ( is_wp_error( $response ) ) {
 		aatg_log_api_error( 'title', $response );
 		return $response;
