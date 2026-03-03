@@ -3,7 +3,7 @@ Contributors: connorbulmer
 Tags: alt text, accessibility, seo, images, ai
 Requires at least: 5.5
 Tested up to: 6.9
-Stable tag: 1.18
+Stable tag: 1.19
 Requires PHP: 7.4
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -68,6 +68,7 @@ This solution is far cheaper than many alternatives because it cuts out the midd
 * **Automatically Generate Title** – Add descriptive titles alongside alt text.  
 * **Use full context for image titles** – When enabled, title generation includes site context and file name (uses more tokens).  
 * **Bulk optimiser delay (seconds)** – Pause between batches during bulk runs.  
+* **OpenAI request timeout (seconds)** – Max wait time for OpenAI responses (10–120s) to reduce timeout failures on slower hosts.  
 * **Output Language** – Default English (US). Choose English (UK) for British spellings or another popular language; outputs (alt text and titles) will be generated in the selected language.
 
 == Frequently Asked Questions ==
@@ -91,6 +92,11 @@ GPT-4o mini by default, with GPT 5 Mini and GPT 5 Nano (BETA) available in setti
 By default, the bulk page requires the `manage_options` capability (typically Administrators). You can change this in code to `upload_files` if you want Editors with media permissions to run it.
 
 == Changelog ==
+
+= 1.19 = 2026-02-02
+* **New:** Added configurable OpenAI request timeout setting (10–120 seconds, default 30).
+* **Improved:** OpenAI calls now retry once after timeout with a longer wait window.
+* **Improved:** Better resilience to transient `cURL error 28` timeout failures during alt text/title generation.
 
 = 1.18 = 2026-01-28
 * **New:** Branded tabbed dashboard with Settings, Bulk Updater, and Integrations.
