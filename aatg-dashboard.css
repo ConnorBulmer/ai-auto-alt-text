@@ -183,6 +183,44 @@
 	color: var( --aatg-light-blue );
 }
 
+.aatg-card h3 {
+	margin: 22px 0 8px;
+	color: var( --aatg-dark-blue );
+}
+
+.aatg-badge {
+	display: inline-block;
+	padding: 2px 10px;
+	border-radius: 999px;
+	background: var( --aatg-light-blue-grey );
+	color: var( --aatg-near-black );
+	font-size: 12px;
+	font-weight: 700;
+	margin-right: 6px;
+	vertical-align: middle;
+}
+
+.aatg-badge-ok {
+	background: var( --aatg-mid-blue );
+	color: var( --aatg-off-white );
+}
+
+.aatg-hooks-list {
+	margin: 8px 0 0;
+	padding-left: 18px;
+}
+
+.aatg-hooks-list li {
+	margin: 4px 0;
+}
+
+.aatg-hooks-list code,
+.aatg-card p code {
+	background: rgba( 53, 115, 178, 0.1 );
+	padding: 1px 6px;
+	border-radius: 6px;
+}
+
 @media ( max-width: 782px ) {
 	.aatg-hero {
 		padding: 20px;

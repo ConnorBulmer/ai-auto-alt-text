@@ -2,9 +2,11 @@
 
 jQuery( function ( $ ) {
 
-	let total     = null;
-	let completed = 0;
-	let running   = false;
+	let total       = null;
+	let offset      = 0;
+	let scanned     = 0;
+	let regenerated = 0;
+	let running     = false;
 
 	const DELAY = ( 'delay' in aatg_bulk_ajax )
 	? parseInt( aatg_bulk_ajax.delay, 10 ) * 1000
@@ -27,9 +29,11 @@ jQuery( function ( $ ) {
 		running = true;
 		$btn.prop( 'disabled', true );     // disable while running
 
-		completed = 0;
-		total     = null;
-		logCount  = 0;
+		total       = null;
+		offset      = 0;
+		scanned     = 0;
+		regenerated = 0;
+		logCount    = 0;
 
 		$( '#aatg-bulk-status' ).hide();
 		$log.hide();
@@ -48,7 +52,8 @@ jQuery( function ( $ ) {
 	function processBatch() {
 		$.post( aatg_bulk_ajax.ajax_url, {
 			action : 'aatg_bulk_update',
-			nonce  : aatg_bulk_ajax.nonce
+			nonce  : aatg_bulk_ajax.nonce,
+			offset : offset
 		} )
 		.done( function ( res ) {
 
@@ -57,27 +62,32 @@ jQuery( function ( $ ) {
 				return;
 			}
 
-			const processed = res.data.processed;
-			const remaining = res.data.remaining;
-			const issues = Array.isArray( res.data.issues ) ? res.data.issues : [];
+			const data   = res.data || {};
+			const issues = Array.isArray( data.issues ) ? data.issues : [];
 
 			if ( total === null ) {
-				total = processed + remaining;
-				$bar.attr( 'max', total );
+				total = parseInt( data.total, 10 ) || 0;
+				$bar.attr( 'max', total > 0 ? total : 1 );
 			}
 
 			if ( issues.length ) {
 				appendIssues( issues );
 			}
 
-			completed += processed;
-			$bar.val( completed );
-			$text.text( `Optimised ${ completed } of ${ total } images…` );
+			const batchScanned = parseInt( data.scanned, 10 ) || 0;
+			offset       = parseInt( data.next_offset, 10 ) || ( offset + batchScanned );
+			scanned      = offset;
+			regenerated += parseInt( data.processed, 10 ) || 0;
 
-			if ( remaining > 0 ) {
+			$bar.val( scanned );
+			$text.text( `Scanned ${ scanned } of ${ total } images · regenerated ${ regenerated }` );
+
+			const remaining = parseInt( data.remaining, 10 ) || 0;
+
+			if ( remaining > 0 && batchScanned > 0 ) {
 				setTimeout( processBatch, DELAY );
 			} else {
-				$text.text( `Bulk update complete — ${ total } images optimised.` );
+				$text.text( `Bulk update complete — scanned ${ total } images, regenerated ${ regenerated }.` );
 				resetButton();
 			}
 		} )

@@ -1,6 +1,6 @@
 # AI Auto Alt Text Generator
 
-Automatically generates alt text and image titles for uploaded images in WordPress using OpenAI models you can choose from (defaulting to GPT‑4o mini). Improves accessibility and SEO with no manual effort.
+Automatically generates alt text and image titles for uploaded images in WordPress using OpenAI models you can choose from (defaulting to GPT-5.4 nano). Improves accessibility and SEO with no manual effort.
 
 **External service used:** OpenAI (see “External services” section in `readme.txt` for full details).
 
@@ -8,9 +8,9 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 
 **Plugin Name:** AI Auto Alt Text Generator   
 **Author:** [Connor Bulmer](https://connorbulmer.co.uk)   
-**Version:** 1.19   
-**Stable tag:** 1.19   
-**Tested up to:** WordPress 6.9   
+**Version:** 1.21
+**Stable tag:** 1.21
+**Tested up to:** WordPress 7.0   
 **Requires at least:** WordPress 5.5   
 **License:** GPL v3 or later   
 **Tags:** alt text, accessibility, SEO, image optimisation, GPT-4o, media, AI alt text   
@@ -26,10 +26,12 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 - Choose the image size and visual detail level to send
 - Provide optional site-wide context to improve results
 - Optionally include the image file name in the prompt
-- Choose between GPT-4o mini and GPT 5 Mini/Nano (BETA) models
+- Choose between GPT-5.4 nano (default), GPT-5.4 mini, and legacy GPT-4o mini / GPT-5 models
 - Uses OpenAI vision-capable models (text + image input)
 - Lightweight and privacy-conscious — no third-party servers involved except OpenAI
 - Language selection provided to enable alt text in the appropriate language
+- Developer hooks (filters & actions) and optional outgoing webhooks
+- WordPress Abilities API integration (WordPress 6.9+/7.0) for AI agents and automation
 
 ---
 
@@ -47,7 +49,7 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 
 ## 🛠 Installation
 
-1. Upload the plugin to `/wp-content/plugins/auto-alt-text-generator`  
+1. Upload the plugin to `/wp-content/plugins/ai-auto-alt-text-generator`  
    (or install via the Plugins screen in WordPress)
 2. Activate it
 3. Go to **Settings → Alt Text Generator**
@@ -61,7 +63,7 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 | Option                            | Description |
 |----------------------------------|-------------|
 | **OpenAI API Key**               | Required to connect to OpenAI |
-| **OpenAI Model**                 | GPT-4o mini (default), GPT 5 Mini (BETA), or GPT 5 Nano (BETA) |
+| **OpenAI Model**                 | GPT-5.4 nano (default), GPT-5.4 mini, or legacy GPT-4o mini / GPT-5 mini / GPT-5 nano |
 | **Image Size to Send**           | Thumbnail, Medium, Large, or Full |
 | **Image Detail Quality**         | Send ‘low’ or ‘high’ image detail |
 | **Bulk Batch Size**              | Number of images per bulk batch (lower to reduce rate-limit risk) |
@@ -70,6 +72,7 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 | **Send Image File Name**         | Includes file name (e.g. `products-summer.jpg`) in prompt |
 | **Automatically Generate Title** | Create SEO-friendly titles for images |
 | **OpenAI Request Timeout (seconds)** | Max wait time for OpenAI responses (10–120s, default 30s) |
+| **Webhook URL & secret**         | Optionally POST generated alt text/titles to an external endpoint (optional HMAC signature) |
 
 ---
 
@@ -77,11 +80,24 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 
 - **Media Library:** Each image gains a “Generate Alt Text & Title” button
 - **Bulk Tool:** Found under **Tools → Bulk Alt Text Update**  
-  Processes images without alt text in configurable batches, with a progress bar
+  Scans your library in configurable batches and regenerates missing or filename-based alt text, with a progress bar
 
 ---
 
 ## 📦 Changelog
+
+## 1.21 2026-06-09
+- 🚀 New default model: GPT-5.4 nano (fastest & cheapest, vision-capable); GPT-5.4 mini available for higher quality. Existing installs keep their current model; legacy GPT-4o mini and GPT-5 models remain selectable
+- ✅ WordPress 7.0 compatibility (tested up to 7.0)
+- 🧩 WordPress Abilities API: registers `ai-auto-alt-text/generate-alt-text` (WordPress 6.9+) for core AI, agents and automation
+- 🔔 Outgoing webhooks with optional HMAC-SHA256 signature
+- 🪝 Developer filters & actions for prompts, payload, output and webhook
+- 🔁 Bulk tool now also regenerates filename-based / low-quality alt text, never overwriting genuine descriptions
+- ♿ Prompts rewritten for stronger accessibility (WCAG) and SEO; alt text tightened to ~125 characters
+- ✨ Media Library “Generate Alt Text & Title” button now updates the fields instantly (no page refresh needed)
+
+## 1.20 2026-03-25
+- 🐛 Fixed: Resolved an uncommon issue where generated alt text could include the parent page/post title; prompt now explicitly instructs the model to omit it
 
 ## 1.19 2026-02-02
 - ⏱️ Added configurable OpenAI request timeout setting (10–120 seconds, default 30)
@@ -189,7 +205,7 @@ Try reducing the bulk batch size, increasing the bulk delay, switching Image Det
 No — images are passed to OpenAI by URL only, and never stored. Your data remains private.
 
 ### What model does this use?
-GPT-4o mini by default, with options for GPT 5 Mini and GPT 5 Nano (BETA) in settings. These accept both text and image input.
+GPT-5.4 nano by default (cheapest, vision-capable), with GPT-5.4 mini for higher quality. Legacy GPT-4o mini and GPT-5 mini/nano remain selectable. Existing installs keep their previously selected model.
 
 ### Can I customise the prompt?
 You can guide results using:
@@ -197,14 +213,14 @@ You can guide results using:
 - Parent page title (automatic)
 - Image file name (optional setting)
 
-The prompt text itself is optimised for clear, accessible alt descriptions.
+The prompt text itself is optimised for clear, accessible, SEO-friendly alt descriptions, and developers can override it via the `aatg_alt_text_prompt` and `aatg_image_title_prompt` filters.
 
 ---
 
 ## 📜 License
 
-This plugin is licensed under the GNU General Public License v2.0 or later.  
-See: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
+This plugin is licensed under the GNU General Public License v3.0 or later.  
+See: [https://www.gnu.org/licenses/gpl-3.0.html](https://www.gnu.org/licenses/gpl-3.0.html)
 
 ---
 

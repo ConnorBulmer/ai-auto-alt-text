@@ -2,10 +2,10 @@
 /**
  * Plugin Name: AI Auto Alt Text Generator
  * Plugin URI:  https://github.com/ConnorBulmer/ai-auto-alt-text/
- * Description: Automatically generates alt text and image titles for uploaded images using OpenAI’s GPT‑4o mini vision model, improving accessibility and SEO.
- * Version:     1.19
+ * Description: Automatically generates alt text and image titles for uploaded images using OpenAI vision models (GPT-5.4 nano by default), improving accessibility and SEO.
+ * Version:     1.21
  * Requires at least: 5.5
- * Tested up to: 6.9
+ * Tested up to: 7.0
  * Requires PHP: 7.4
  * Author:      Connor Bulmer
  * Author URI:  https://connorbulmer.co.uk
@@ -94,7 +94,7 @@ function aatg_register_settings_init() {
 	register_setting( 'aatg_options_group', 'aatg_openai_model', array(
 		'type'              => 'string',
 		'sanitize_callback' => 'sanitize_text_field',
-		'default'           => 'gpt-4o-mini',
+		'default'           => 'gpt-5.4-nano',
 	) );
 
 	register_setting( 'aatg_options_group', 'aatg_image_size', array(
@@ -165,6 +165,19 @@ register_setting( 'aatg_options_group', 'aatg_language', array(
 	'type'              => 'string',
 	'sanitize_callback' => 'sanitize_text_field',
 	'default'           => 'en_US', // default: English (US)
+) );
+
+/* integrations: outgoing webhook ------------------------------------------- */
+register_setting( 'aatg_options_group', 'aatg_webhook_url', array(
+	'type'              => 'string',
+	'sanitize_callback' => 'esc_url_raw',
+	'default'           => '',
+) );
+
+register_setting( 'aatg_options_group', 'aatg_webhook_secret', array(
+	'type'              => 'string',
+	'sanitize_callback' => 'sanitize_text_field',
+	'default'           => '',
 ) );
 
 
@@ -288,6 +301,30 @@ add_settings_field(
 	'aatg_settings_section'
 );
 
+/* integrations & webhooks -------------------------------------------------- */
+add_settings_section(
+	'aatg_integrations_section',
+	__( 'Integrations & Webhooks', 'ai-auto-alt-text-generator' ),
+	'aatg_integrations_section_callback',
+	'aatg-settings'
+);
+
+add_settings_field(
+	'aatg_webhook_url',
+	__( 'Webhook URL', 'ai-auto-alt-text-generator' ),
+	'aatg_webhook_url_render',
+	'aatg-settings',
+	'aatg_integrations_section'
+);
+
+add_settings_field(
+	'aatg_webhook_secret',
+	__( 'Webhook signing secret', 'ai-auto-alt-text-generator' ),
+	'aatg_webhook_secret_render',
+	'aatg-settings',
+	'aatg_integrations_section'
+);
+
 	
 
 }
@@ -305,6 +342,35 @@ function aatg_section_callback() {
  */
 function aatg_rate_limit_section_callback() {
 	echo '<p>' . esc_html__( 'Tune these settings to reduce token usage and avoid rate limits during bulk runs.', 'ai-auto-alt-text-generator' ) . '</p>';
+}
+
+/**
+ * Integrations & webhooks section description.
+ */
+function aatg_integrations_section_callback() {
+	echo '<p>' . esc_html__( 'Optionally POST to an external URL each time alt text or a title is generated — useful for automation tools (Zapier, Make), logging, or syncing to other systems.', 'ai-auto-alt-text-generator' ) . '</p>';
+}
+
+function aatg_webhook_url_render() {
+	$url = get_option( 'aatg_webhook_url', '' );
+	printf(
+		'<input type="url" id="aatg_webhook_url" name="aatg_webhook_url" value="%s" class="regular-text ltr" placeholder="https://example.com/webhook" />',
+		esc_attr( $url )
+	);
+	echo ' <span class="description">' .
+	     esc_html__( 'Leave blank to disable. Requests are sent non-blocking, so uploads are not slowed.', 'ai-auto-alt-text-generator' ) .
+	     '</span>';
+}
+
+function aatg_webhook_secret_render() {
+	$secret = get_option( 'aatg_webhook_secret', '' );
+	printf(
+		'<input type="text" id="aatg_webhook_secret" name="aatg_webhook_secret" value="%s" class="regular-text ltr" autocomplete="off" />',
+		esc_attr( $secret )
+	);
+	echo ' <span class="description">' .
+	     esc_html__( 'Optional. If set, each request includes an X-AATG-Signature header (HMAC-SHA256 of the body) so your endpoint can verify authenticity.', 'ai-auto-alt-text-generator' ) .
+	     '</span>';
 }
 
 /* ---------- individual field render callbacks ---------- */
@@ -503,7 +569,7 @@ function aatg_render_bulk_panel() { ?>
 		sprintf(
 			/* translators: %1$d = seconds, %2$d = batch size */
 			esc_html__(
-				'This tool processes images without alt text in batches of %2$d, pausing %1$d seconds between batches.',
+				'This tool scans your image library in batches of %2$d (pausing %1$d seconds between batches) and regenerates alt text that is missing or merely filename-based, leaving genuine descriptions untouched.',
 				'ai-auto-alt-text-generator'
 			),
 			$delay,
@@ -578,7 +644,51 @@ function aatg_render_dashboard_page( $active_tab = 'settings' ) {
 		<section id="aatg-panel-integrations" class="aatg-panel" data-aatg-panel="integrations" role="tabpanel">
 			<div class="aatg-card">
 				<h2><?php esc_html_e( 'Integrations', 'ai-auto-alt-text-generator' ); ?></h2>
-				<p><?php esc_html_e( 'Coming soon.', 'ai-auto-alt-text-generator' ); ?></p>
+
+				<h3><?php esc_html_e( 'Outgoing webhooks', 'ai-auto-alt-text-generator' ); ?></h3>
+				<p>
+					<?php
+					$webhook_url = get_option( 'aatg_webhook_url', '' );
+					if ( $webhook_url ) {
+						printf(
+							/* translators: %s = configured webhook URL */
+							esc_html__( 'Active — posting to %s after each generation.', 'ai-auto-alt-text-generator' ),
+							'<code>' . esc_html( $webhook_url ) . '</code>'
+						);
+					} else {
+						printf(
+							/* translators: %s = link to the Settings tab */
+							wp_kses( __( 'Send a POST to your own endpoint whenever alt text or a title is generated. Add a URL under %s.', 'ai-auto-alt-text-generator' ), array( 'a' => array( 'href' => array(), 'data-aatg-tab' => array() ) ) ),
+							'<a href="#settings" data-aatg-tab="settings">' . esc_html__( 'Settings → Integrations & Webhooks', 'ai-auto-alt-text-generator' ) . '</a>'
+						);
+					}
+					?>
+				</p>
+
+				<h3><?php esc_html_e( 'WordPress Abilities API', 'ai-auto-alt-text-generator' ); ?></h3>
+				<p>
+					<?php if ( function_exists( 'wp_register_ability' ) ) : ?>
+						<span class="aatg-badge aatg-badge-ok"><?php esc_html_e( 'Available', 'ai-auto-alt-text-generator' ); ?></span>
+						<?php esc_html_e( 'This site exposes the ability', 'ai-auto-alt-text-generator' ); ?>
+						<code>ai-auto-alt-text/generate-alt-text</code>
+						<?php esc_html_e( 'so WordPress AI features, agents and automation tools can generate alt text.', 'ai-auto-alt-text-generator' ); ?>
+					<?php else : ?>
+						<span class="aatg-badge"><?php esc_html_e( 'Requires WordPress 6.9+', 'ai-auto-alt-text-generator' ); ?></span>
+						<?php esc_html_e( 'Upgrade to WordPress 6.9 or later to expose the generate-alt-text ability to AI tools and automation.', 'ai-auto-alt-text-generator' ); ?>
+					<?php endif; ?>
+				</p>
+
+				<h3><?php esc_html_e( 'Developer hooks', 'ai-auto-alt-text-generator' ); ?></h3>
+				<p><?php esc_html_e( 'Extend or customise generation with these filters and actions:', 'ai-auto-alt-text-generator' ); ?></p>
+				<ul class="aatg-hooks-list">
+					<li><code>aatg_alt_text_prompt</code> — <?php esc_html_e( 'filter the alt-text prompt', 'ai-auto-alt-text-generator' ); ?></li>
+					<li><code>aatg_image_title_prompt</code> — <?php esc_html_e( 'filter the title prompt', 'ai-auto-alt-text-generator' ); ?></li>
+					<li><code>aatg_openai_request_payload</code> — <?php esc_html_e( 'filter the full OpenAI request (model, messages, reasoning effort)', 'ai-auto-alt-text-generator' ); ?></li>
+					<li><code>aatg_generated_alt_text</code> / <code>aatg_generated_title</code> — <?php esc_html_e( 'filter output before it is saved', 'ai-auto-alt-text-generator' ); ?></li>
+					<li><code>aatg_is_low_quality_alt</code> — <?php esc_html_e( 'tune which existing alt text the bulk tool regenerates', 'ai-auto-alt-text-generator' ); ?></li>
+					<li><code>aatg_webhook_payload</code> — <?php esc_html_e( 'filter the outgoing webhook body', 'ai-auto-alt-text-generator' ); ?></li>
+					<li><code>aatg_after_alt_text_generated</code> / <code>aatg_after_title_generated</code> / <code>aatg_after_generation</code> — <?php esc_html_e( 'actions fired after generation', 'ai-auto-alt-text-generator' ); ?></li>
+				</ul>
 			</div>
 		</section>
 
@@ -656,7 +766,17 @@ function aatg_generate_alt_text( $post_ID ) {
 
 	$context .= aatg_file_name_context( $post_ID );
 
-	$base_prompt = 'Please provide a concise, context-aware alt-text description for the following image. Focus on key visual elements such as primary objects, colours and layout, avoid phrases like "image of", use clear language for screen readers, and keep it under 140 characters:';
+	$base_prompt = 'Write a single alt text for the following image that serves both screen-reader accessibility (WCAG 1.1.1) and SEO. Lead with the main subject, then add only essential context. Where accurate, naturally include the most relevant descriptive keyword, but never keyword-stuff. If the image contains meaningful text (a sign, label, infographic or logo wordmark), transcribe it. Do not begin with "image of", "picture of", "photo of" or "graphic of". Do not repeat or include any page title. Use clear, specific, human language and keep it under 125 characters. Output only the alt text:';
+
+	/**
+	 * Filter the base alt-text prompt sent to OpenAI.
+	 *
+	 * @param string $base_prompt Instruction text (without the context prefix).
+	 * @param int    $post_ID     Attachment ID.
+	 * @param string $context     Context prefix (parent title, site context, filename).
+	 */
+	$base_prompt = apply_filters( 'aatg_alt_text_prompt', $base_prompt, $post_ID, $context );
+
 	$full_prompt = $context . $base_prompt;
 
 	/* language */
@@ -689,10 +809,7 @@ function aatg_generate_alt_text( $post_ID ) {
 		),
 	);
 
-	$payload = array(
-		'model'    => aatg_get_selected_model(),
-		'messages' => $messages,
-	);
+	$payload = aatg_build_request_payload( $messages, 'alt text' );
 
 	$response = aatg_openai_chat_completion_request( $payload, $api_key, 'alt text' );
 	if ( is_wp_error( $response ) ) {
@@ -709,7 +826,25 @@ function aatg_generate_alt_text( $post_ID ) {
 	$data = json_decode( $body, true );
 	if ( ! empty( $data['choices'][0]['message']['content'] ) ) {
 		$alt_text = aatg_trim_leading_quote( sanitize_text_field( $data['choices'][0]['message']['content'] ) );
+
+		/**
+		 * Filter the generated alt text before it is saved.
+		 *
+		 * @param string $alt_text Generated alt text.
+		 * @param int    $post_ID  Attachment ID.
+		 */
+		$alt_text = apply_filters( 'aatg_generated_alt_text', $alt_text, $post_ID );
+
 		update_post_meta( $post_ID, '_wp_attachment_image_alt', $alt_text );
+
+		/**
+		 * Fires after alt text has been generated and saved.
+		 *
+		 * @param int    $post_ID  Attachment ID.
+		 * @param string $alt_text Saved alt text.
+		 */
+		do_action( 'aatg_after_alt_text_generated', $post_ID, $alt_text );
+
 		return $alt_text;
 	} else {
 		aatg_log_unexpected_response( 'alt text', $body );
@@ -760,7 +895,16 @@ function aatg_generate_image_title( $post_ID ) {
 
 	$context = implode( ' ', $parts );
 
-	$title_prompt = "{$context} Please provide a concise, SEO-friendly image title for the following image. Output only the title in plain text. Summarise the image in about 50–70 characters, focusing on its key subject and context:";
+	$title_prompt = "{$context} Write a concise, SEO-friendly title for the following image. Lead with its primary subject, use natural human-readable language with relevant keywords (never keyword-stuff), and avoid filler words like 'image', 'photo' or 'picture'. Output only the title in plain text, about 50–70 characters:";
+
+	/**
+	 * Filter the image-title prompt sent to OpenAI.
+	 *
+	 * @param string $title_prompt Full title prompt (including the context prefix).
+	 * @param int    $post_ID      Attachment ID.
+	 * @param string $context      Context prefix used in the prompt.
+	 */
+	$title_prompt = apply_filters( 'aatg_image_title_prompt', $title_prompt, $post_ID, $context );
 
 	/* language */
 	$system_message = aatg_language_system_message();
@@ -792,10 +936,7 @@ function aatg_generate_image_title( $post_ID ) {
 		),
 	);
 
-	$payload = array(
-		'model'    => aatg_get_selected_model(),
-		'messages' => $messages,
-	);
+	$payload = aatg_build_request_payload( $messages, 'title' );
 
 	$response = aatg_openai_chat_completion_request( $payload, $api_key, 'title' );
 	if ( is_wp_error( $response ) ) {
@@ -813,10 +954,27 @@ function aatg_generate_image_title( $post_ID ) {
 	if ( ! empty( $data['choices'][0]['message']['content'] ) ) {
 		$title_text = aatg_trim_leading_quote( sanitize_text_field( $data['choices'][0]['message']['content'] ) );
 
+		/**
+		 * Filter the generated image title before it is saved.
+		 *
+		 * @param string $title_text Generated title.
+		 * @param int    $post_ID    Attachment ID.
+		 */
+		$title_text = apply_filters( 'aatg_generated_title', $title_text, $post_ID );
+
 		wp_update_post( array(
 			'ID'         => $post_ID,
 			'post_title' => $title_text,
 		) );
+
+		/**
+		 * Fires after an image title has been generated and saved.
+		 *
+		 * @param int    $post_ID    Attachment ID.
+		 * @param string $title_text Saved title.
+		 */
+		do_action( 'aatg_after_title_generated', $post_ID, $title_text );
+
 		return $title_text;
 	} else {
 		aatg_log_unexpected_response( 'title', $body );
@@ -920,9 +1078,172 @@ function aatg_generate_text_and_title( $post_ID ) {
 		}
 	}
 
+	/**
+	 * Fires after a full generation pass (alt text and optional title) completes.
+	 *
+	 * Used internally to dispatch outgoing webhooks; also available to integrators.
+	 *
+	 * @param int   $post_ID Attachment ID.
+	 * @param array $result  Result array with 'alt_text', 'title', 'warning' keys.
+	 */
+	do_action( 'aatg_after_generation', $post_ID, $result );
+
 	return $result;
 }
 add_action( 'add_attachment', 'aatg_generate_text_and_title' );
+
+/* =============================================================================
+   OUTGOING WEBHOOKS
+============================================================================= */
+
+/**
+ * Dispatch an outgoing webhook after a generation pass, if a URL is configured.
+ *
+ * Hooked to `aatg_after_generation`. Sends a non-blocking POST so it never slows
+ * uploads, and (when a secret is set) signs the body with HMAC-SHA256.
+ *
+ * @param int   $post_ID Attachment ID.
+ * @param array $result  Generation result (alt_text, title, warning).
+ */
+function aatg_dispatch_webhook( $post_ID, $result ) {
+	$url = get_option( 'aatg_webhook_url', '' );
+	if ( empty( $url ) ) {
+		return;
+	}
+
+	$image = wp_get_attachment_image_src( $post_ID, 'full' );
+
+	$payload = array(
+		'event'         => 'alt_text_generated',
+		'attachment_id' => (int) $post_ID,
+		'alt_text'      => isset( $result['alt_text'] ) ? $result['alt_text'] : '',
+		'title'         => isset( $result['title'] ) ? $result['title'] : '',
+		'image_url'     => $image ? $image[0] : '',
+		'site_url'      => home_url(),
+		'timestamp'     => current_time( 'c' ),
+	);
+
+	/**
+	 * Filter the outgoing webhook payload.
+	 *
+	 * @param array $payload The webhook payload.
+	 * @param int   $post_ID Attachment ID.
+	 * @param array $result  Generation result.
+	 */
+	$payload = apply_filters( 'aatg_webhook_payload', $payload, $post_ID, $result );
+
+	$body    = wp_json_encode( $payload );
+	$headers = array( 'Content-Type' => 'application/json' );
+
+	$secret = get_option( 'aatg_webhook_secret', '' );
+	if ( ! empty( $secret ) ) {
+		$headers['X-AATG-Signature'] = 'sha256=' . hash_hmac( 'sha256', $body, $secret );
+	}
+
+	wp_remote_post( $url, array(
+		'headers'  => $headers,
+		'body'     => $body,
+		'timeout'  => aatg_get_request_timeout(),
+		'blocking' => false,
+	) );
+}
+add_action( 'aatg_after_generation', 'aatg_dispatch_webhook', 10, 2 );
+
+/* =============================================================================
+   WORDPRESS ABILITIES API (WP 6.9+ / 7.0)
+============================================================================= */
+
+/**
+ * Register the ability category on the dedicated categories hook, which fires
+ * before abilities are registered. No-op on WordPress < 6.9.
+ */
+function aatg_register_ability_category() {
+	if ( ! function_exists( 'wp_register_ability_category' ) ) {
+		return;
+	}
+
+	wp_register_ability_category(
+		'ai-auto-alt-text',
+		array(
+			'label'       => __( 'AI Auto Alt Text', 'ai-auto-alt-text-generator' ),
+			'description' => __( 'Generate accessible, SEO-friendly image alt text and titles.', 'ai-auto-alt-text-generator' ),
+		)
+	);
+}
+add_action( 'wp_abilities_api_categories_init', 'aatg_register_ability_category' );
+
+/**
+ * Register the plugin's abilities so WordPress core AI, agents, MCP servers and
+ * automation tools can generate alt text programmatically. No-op on WP < 6.9.
+ */
+function aatg_register_abilities() {
+	if ( ! function_exists( 'wp_register_ability' ) ) {
+		return;
+	}
+
+	wp_register_ability(
+		'ai-auto-alt-text/generate-alt-text',
+		array(
+			'label'               => __( 'Generate image alt text', 'ai-auto-alt-text-generator' ),
+			'description'         => __( 'Generate accessible, SEO-friendly alt text (and, when the plugin\'s auto-title setting is on, a title) for a WordPress image attachment using the configured OpenAI vision model.', 'ai-auto-alt-text-generator' ),
+			'category'            => 'ai-auto-alt-text',
+			'input_schema'        => array(
+				'type'       => 'object',
+				'properties' => array(
+					'attachment_id' => array(
+						'type'        => 'integer',
+						'description' => __( 'The ID of the image attachment to describe.', 'ai-auto-alt-text-generator' ),
+					),
+				),
+				'required'   => array( 'attachment_id' ),
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'attachment_id' => array( 'type' => 'integer' ),
+					'alt_text'      => array( 'type' => 'string' ),
+					'title'         => array( 'type' => 'string' ),
+				),
+			),
+			'execute_callback'    => 'aatg_ability_generate_alt_text',
+			'permission_callback' => 'aatg_ability_permission_check',
+		)
+	);
+}
+add_action( 'wp_abilities_api_init', 'aatg_register_abilities' );
+
+/**
+ * Permission callback for the generate-alt-text ability.
+ *
+ * @return bool
+ */
+function aatg_ability_permission_check() {
+	return current_user_can( 'upload_files' );
+}
+
+/**
+ * Execute callback for the generate-alt-text ability.
+ *
+ * @param array $input Validated input (expects 'attachment_id').
+ * @return array|WP_Error Structured result, or WP_Error on failure.
+ */
+function aatg_ability_generate_alt_text( $input ) {
+	$attachment_id = isset( $input['attachment_id'] ) ? absint( $input['attachment_id'] ) : 0;
+	if ( ! $attachment_id ) {
+		return new WP_Error( 'aatg_invalid_input', __( 'A valid attachment_id is required.', 'ai-auto-alt-text-generator' ) );
+	}
+
+	$result = aatg_generate_text_and_title( $attachment_id );
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
+
+	return array(
+		'attachment_id' => $attachment_id,
+		'alt_text'      => isset( $result['alt_text'] ) ? (string) $result['alt_text'] : '',
+		'title'         => isset( $result['title'] ) ? (string) $result['title'] : '',
+	);
+}
 
 /* =============================================================================
    MEDIA LIBRARY BUTTON & AJAX
@@ -964,7 +1285,7 @@ function aatg_enqueue_admin_scripts() {
 		'aatg-admin-script',
 		plugin_dir_url( __FILE__ ) . 'aatg-admin.js',
 		array( 'jquery' ),
-		'1.8',
+		'1.9',
 		true
 	);
 
@@ -992,7 +1313,7 @@ function aatg_enqueue_dashboard_assets( $hook ) {
 		'aatg-dashboard-style',
 		plugin_dir_url( __FILE__ ) . 'aatg-dashboard.css',
 		array(),
-		'1.0'
+		'1.1'
 	);
 
 	wp_enqueue_script(
@@ -1007,7 +1328,7 @@ function aatg_enqueue_dashboard_assets( $hook ) {
 		'aatg-bulk-script',
 		plugin_dir_url( __FILE__ ) . 'aatg-bulk.js',
 		array( 'jquery' ),
-		'1.3',
+		'1.4',
 		true
 	);
 
@@ -1061,10 +1382,74 @@ add_action( 'wp_ajax_aatg_generate_alt_text_ajax', 'aatg_generate_alt_text_ajax'
 ============================================================================= */
 
 /**
- * AJAX – bulk‑update alt text for images without it (configurable batch size).
+ * AJAX – bulk-regenerate alt text in batches via an offset cursor, replacing
+ * missing or filename-based alt text while leaving genuine descriptions intact.
  * Sends optional debug data to JS **and** appends the same info to
  * wp‑content/uploads/aatg‑logs/bulk-debug.log
  */
+/**
+ * Normalise text for loose comparison: strip tags/punctuation, lowercase, and
+ * collapse whitespace. Keeps Unicode letters/numbers.
+ *
+ * @param string $text
+ * @return string
+ */
+function aatg_normalise_text( $text ) {
+	$text = (string) $text;
+	$text = function_exists( 'mb_strtolower' ) ? mb_strtolower( $text ) : strtolower( $text );
+	$text = preg_replace( '/[^\p{L}\p{N}]+/u', ' ', wp_strip_all_tags( $text ) );
+	return trim( preg_replace( '/\s+/u', ' ', (string) $text ) );
+}
+
+/**
+ * Decide whether an attachment's alt text is missing or merely filename-derived
+ * (and therefore worth regenerating in a bulk run). Genuine human/AI-written
+ * descriptions return false so they are never overwritten.
+ *
+ * @param string $alt     Current alt text.
+ * @param int    $post_ID Attachment ID.
+ * @return bool
+ */
+function aatg_is_low_quality_alt( $alt, $post_ID ) {
+	$alt    = is_string( $alt ) ? trim( $alt ) : '';
+	$is_low = false;
+
+	if ( '' === $alt ) {
+		$is_low = true;
+	} else {
+		$norm = aatg_normalise_text( $alt );
+
+		$file         = get_attached_file( $post_ID );
+		$base         = $file ? pathinfo( wp_basename( $file ), PATHINFO_FILENAME ) : '';
+		$slug_form    = aatg_normalise_text( $base );
+		$cleaned_form = aatg_normalise_text( str_replace( array( '-', '_' ), ' ', $base ) );
+		$title_norm   = aatg_normalise_text( get_the_title( $post_ID ) );
+
+		if (
+			( '' !== $slug_form && $norm === $slug_form ) ||
+			( '' !== $cleaned_form && $norm === $cleaned_form ) ||
+			// alt matches the post title AND that title is itself the filename.
+			( '' !== $title_norm && $norm === $title_norm && ( $title_norm === $slug_form || $title_norm === $cleaned_form ) ) ||
+			// Common camera / stock / screenshot filename patterns.
+			preg_match( '/^(img|dsc|dscf|image|photo|pexels|unsplash|screenshot|screen shot|untitled|capture|scan)[\s_-]*\d+$/i', $alt ) ||
+			// A single filename-like token containing a digit (e.g. IMG1234, 20240115-120000).
+			( preg_match( '/^[a-z0-9._-]+$/i', $alt ) && preg_match( '/\d/', $alt ) )
+		) {
+			$is_low = true;
+		}
+	}
+
+	/**
+	 * Filter whether a given alt text is "low quality" and should be regenerated
+	 * by the bulk tool. Return true to regenerate, false to keep it as-is.
+	 *
+	 * @param bool   $is_low  Whether the alt text is considered low quality.
+	 * @param string $alt     The current alt text.
+	 * @param int    $post_ID Attachment ID.
+	 */
+	return (bool) apply_filters( 'aatg_is_low_quality_alt', $is_low, $alt, $post_ID );
+}
+
 function aatg_bulk_update_ajax() {
 	/* -------------------------------------------------- security */
 	if ( ! current_user_can( 'upload_files' ) ) {
@@ -1072,44 +1457,48 @@ function aatg_bulk_update_ajax() {
 	}
 	check_ajax_referer( 'aatg_nonce', 'nonce' );
 
-	/* -------------------------------------------------- helpers  */
+	/* -------------------------------------------------- query ---- */
+	$batch_size = max( 1, (int) get_option( 'aatg_bulk_batch_size', 4 ) );
+	$offset     = isset( $_POST['offset'] ) ? max( 0, (int) $_POST['offset'] ) : 0;
+
 	$base = array(
 		'post_type'      => 'attachment',
 		'post_mime_type' => 'image',
 		'post_status'    => 'inherit',
 		'fields'         => 'ids',
+		'orderby'        => 'ID',
+		'order'          => 'ASC',
 	);
 
-	$batch_size = max( 1, (int) get_option( 'aatg_bulk_batch_size', 4 ) );
-	$meta_query = array(
-		'relation' => 'OR',
-		array(
-			'key'     => '_wp_attachment_image_alt',
-			'compare' => 'NOT EXISTS',
-		),
-		array(
-			'relation' => 'OR',
-			array(
-				'key'     => '_wp_attachment_image_alt',
-				'value'   => '',
-				'compare' => '=',
-			),
-			array(
-				'key'     => '_wp_attachment_image_alt',
-				'value'   => '^\\s*$',
-				'compare' => 'REGEXP',
-			),
-		),
-	);
+	/*
+	 * Page over ALL images (ordered by ID) rather than only those with empty alt
+	 * text: "filename-style / low-quality" alt text cannot be expressed in SQL,
+	 * so each image is examined once via the offset cursor and only missing or
+	 * low-quality alt text triggers an OpenAI call. Genuine descriptions are
+	 * scanned cheaply and skipped.
+	 */
+	$count_query = new WP_Query( $base + array(
+		'posts_per_page' => 1,
+		'no_found_rows'  => false,
+	) );
+	$total = (int) $count_query->found_posts;
+	wp_reset_postdata();
 
 	$batch_ids = get_posts( $base + array(
-		'meta_query'     => $meta_query,
 		'posts_per_page' => $batch_size,
+		'offset'         => $offset,
 	) );
 
-	$processed_success = 0;
+	$processed = 0;
 	$issues    = array();
+
 	foreach ( $batch_ids as $att_id ) {
+		$alt = get_post_meta( $att_id, '_wp_attachment_image_alt', true );
+
+		if ( ! aatg_is_low_quality_alt( $alt, $att_id ) ) {
+			continue; // genuine alt text — leave it untouched.
+		}
+
 		$result = aatg_generate_text_and_title( $att_id );
 		if ( is_wp_error( $result ) ) {
 			$issues[] = array(
@@ -1124,23 +1513,19 @@ function aatg_bulk_update_ajax() {
 				'message'       => $result['warning'],
 			);
 		}
-		$processed_success++;
+		$processed++;
 	}
 
-	/* -------- remaining count: use a single query to avoid double counting -- */
-	$count_query = new WP_Query( $base + array(
-		'meta_query'     => $meta_query,
-		'posts_per_page' => 1,
-		'no_found_rows'  => false,
-	) );
-	$remaining = (int) $count_query->found_posts;
-	wp_reset_postdata();
+	$scanned     = count( $batch_ids );
+	$next_offset = $offset + $scanned;
+	$remaining   = max( 0, $total - $next_offset );
 
 	/* -------- debug + response ---------------------------------- */
 	$debug = array(
-		'batch_ids'     => $batch_ids,
-		'query_sql'     => $count_query->request,
-		'batch_size'    => $batch_size,
+		'batch_ids'  => $batch_ids,
+		'offset'     => $offset,
+		'batch_size' => $batch_size,
+		'total'      => $total,
 	);
 
 	if ( function_exists( 'aatg_write_log' ) ) {
@@ -1148,10 +1533,13 @@ function aatg_bulk_update_ajax() {
 	}
 
 	wp_send_json_success( array(
-		'processed' => $processed_success,
-		'remaining' => $remaining,
-		'debug'     => $debug,
-		'issues'    => $issues,
+		'processed'   => $processed,
+		'scanned'     => $scanned,
+		'next_offset' => $next_offset,
+		'remaining'   => $remaining,
+		'total'       => $total,
+		'debug'       => $debug,
+		'issues'      => $issues,
 	) );
 }
 
@@ -1264,9 +1652,11 @@ function aatg_get_language_options() {
  */
 function aatg_get_model_options() {
 	return array(
-		'gpt-4o-mini' => __( 'GPT-4o mini (Default)', 'ai-auto-alt-text-generator' ),
-		'gpt-5-mini'  => __( 'GPT 5 Mini - Higher Quality (BETA)', 'ai-auto-alt-text-generator' ),
-		'gpt-5-nano'  => __( 'GPT 5 Nano - Cheaper (BETA)', 'ai-auto-alt-text-generator' ),
+		'gpt-5.4-nano' => __( 'GPT-5.4 nano – Fastest & cheapest (Default)', 'ai-auto-alt-text-generator' ),
+		'gpt-5.4-mini' => __( 'GPT-5.4 mini – Higher quality', 'ai-auto-alt-text-generator' ),
+		'gpt-4o-mini'  => __( 'GPT-4o mini – Legacy', 'ai-auto-alt-text-generator' ),
+		'gpt-5-mini'   => __( 'GPT-5 mini – Legacy', 'ai-auto-alt-text-generator' ),
+		'gpt-5-nano'   => __( 'GPT-5 nano – Legacy', 'ai-auto-alt-text-generator' ),
 	);
 }
 
@@ -1274,14 +1664,48 @@ function aatg_get_model_options() {
  * Resolve the configured model, falling back to the default if invalid.
  */
 function aatg_get_selected_model() {
-	$current = get_option( 'aatg_openai_model', 'gpt-4o-mini' );
+	$current = get_option( 'aatg_openai_model', 'gpt-5.4-nano' );
 	$options = aatg_get_model_options();
 
 	if ( ! array_key_exists( $current, $options ) ) {
-		return 'gpt-4o-mini';
+		return 'gpt-5.4-nano';
 	}
 
 	return $current;
+}
+
+/**
+ * Assemble the OpenAI Chat Completions payload for a set of messages.
+ *
+ * Adds a light reasoning effort for GPT-5-family reasoning models (including 5.4)
+ * so short alt-text/title tasks stay fast and cheap, and exposes the whole
+ * payload to developers via the `aatg_openai_request_payload` filter.
+ *
+ * @param array  $messages Chat messages array.
+ * @param string $context  Either 'alt text' or 'title' (passed to the filter).
+ * @return array
+ */
+function aatg_build_request_payload( $messages, $context ) {
+	$model = aatg_get_selected_model();
+
+	$payload = array(
+		'model'    => $model,
+		'messages' => $messages,
+	);
+
+	// GPT-5 family (incl. 5.4) are reasoning models; keep effort low for these short tasks.
+	if ( 0 === strpos( $model, 'gpt-5' ) ) {
+		$payload['reasoning_effort'] = 'low';
+	}
+
+	/**
+	 * Filter the full OpenAI request payload before it is sent.
+	 *
+	 * @param array  $payload  The request payload (model, messages, …).
+	 * @param string $context  'alt text' or 'title'.
+	 * @param array  $messages The chat messages array.
+	 */
+	return apply_filters( 'aatg_openai_request_payload', $payload, $context, $messages );
 }
 
 /**
