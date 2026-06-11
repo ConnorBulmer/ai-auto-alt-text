@@ -3,7 +3,7 @@
  * Plugin Name: AI Auto Alt Text Generator
  * Plugin URI:  https://github.com/ConnorBulmer/ai-auto-alt-text/
  * Description: Automatically generates alt text and image titles for uploaded images using OpenAI vision models (GPT-5.4 nano by default), improving accessibility and SEO.
- * Version:     1.21
+ * Version:     1.22
  * Requires at least: 5.5
  * Tested up to: 7.0
  * Requires PHP: 7.4
@@ -728,6 +728,49 @@ function aatg_file_name_context( $post_ID ) {
 }
 
 /**
+ * Image extensions accepted by the OpenAI vision API.
+ *
+ * @return array Lower-case extensions without the leading dot.
+ */
+function aatg_supported_image_extensions() {
+	/**
+	 * Filter the image formats the plugin will send to OpenAI.
+	 *
+	 * OpenAI's vision models accept PNG, JPEG, GIF and WebP. Sending anything
+	 * else (SVG, BMP, TIFF, AVIF, HEIC, ICO …) returns an HTTP 400, so such
+	 * attachments are skipped before any request is made.
+	 *
+	 * @param array $extensions Lower-case extensions without the leading dot.
+	 */
+	return apply_filters( 'aatg_supported_image_extensions', array( 'png', 'jpg', 'jpeg', 'gif', 'webp' ) );
+}
+
+/**
+ * Verify that the image about to be sent uses an OpenAI-supported format.
+ *
+ * @param string $image_url URL of the (possibly resized) image to send.
+ * @param int    $post_ID   Attachment ID (for context).
+ * @return true|WP_Error True when supported, WP_Error otherwise.
+ */
+function aatg_check_supported_image_format( $image_url, $post_ID ) {
+	$path = wp_parse_url( $image_url, PHP_URL_PATH );
+	$ext  = $path ? strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) : '';
+
+	if ( in_array( $ext, aatg_supported_image_extensions(), true ) ) {
+		return true;
+	}
+
+	return new WP_Error(
+		'aatg_unsupported_format',
+		sprintf(
+			/* translators: %s = file extension, e.g. ".svg" */
+			__( 'Skipped: unsupported image format "%s". OpenAI vision supports PNG, JPEG, GIF and WebP.', 'ai-auto-alt-text-generator' ),
+			$ext ? '.' . $ext : __( 'unknown', 'ai-auto-alt-text-generator' )
+		)
+	);
+}
+
+/**
  * Generate alt text for an image.
  */
 function aatg_generate_alt_text( $post_ID ) {
@@ -743,6 +786,12 @@ function aatg_generate_alt_text( $post_ID ) {
 	}
 
 	$image_url = $image_data[0];
+
+	$format_check = aatg_check_supported_image_format( $image_url, $post_ID );
+	if ( is_wp_error( $format_check ) ) {
+		return $format_check;
+	}
+
 	$api_key   = get_option( 'aatg_openai_api_key' );
 	if ( empty( $api_key ) ) {
 		return new WP_Error( 'aatg_missing_api_key', 'Missing OpenAI API key.' );
@@ -869,6 +918,12 @@ function aatg_generate_image_title( $post_ID ) {
 	}
 
 	$image_url = $image_data[0];
+
+	$format_check = aatg_check_supported_image_format( $image_url, $post_ID );
+	if ( is_wp_error( $format_check ) ) {
+		return $format_check;
+	}
+
 	$api_key   = get_option( 'aatg_openai_api_key' );
 	if ( empty( $api_key ) ) {
 		return new WP_Error( 'aatg_missing_api_key', 'Missing OpenAI API key.' );

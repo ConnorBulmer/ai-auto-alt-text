@@ -3,7 +3,7 @@ Contributors: connorbulmer
 Tags: alt text, accessibility, seo, images, ai
 Requires at least: 5.5
 Tested up to: 7.0
-Stable tag: 1.21
+Stable tag: 1.22
 Requires PHP: 7.4
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -87,6 +87,7 @@ The plugin is extensible via standard WordPress hooks, an outgoing webhook, and 
 * `aatg_generated_title` ( $title, $post_ID ) – filter the title before it is saved.
 * `aatg_is_low_quality_alt` ( $is_low, $alt, $post_ID ) – control which existing alt text the bulk tool regenerates.
 * `aatg_webhook_payload` ( $payload, $post_ID, $result ) – customise the outgoing webhook body.
+* `aatg_supported_image_extensions` ( $extensions ) – customise which image formats are sent to OpenAI (default: PNG, JPEG, GIF, WebP).
 
 **Actions**
 
@@ -126,6 +127,9 @@ No. The bulk tool regenerates alt text that is missing or clearly filename-based
 By default, the bulk page requires the `manage_options` capability (typically Administrators). You can change this in code to `upload_files` if you want Editors with media permissions to run it.
 
 == Changelog ==
+
+= 1.22 = 2026-06-10
+* **Fixed:** Images in formats OpenAI cannot read (SVG, BMP, TIFF, AVIF, HEIC, ICO, …) are now skipped before any request is made — this avoids failed HTTP 400 responses and error-log noise, and reports a clear “unsupported format” notice instead. Only PNG, JPEG, GIF and WebP are sent. Added the `aatg_supported_image_extensions` filter to customise the allowed list.
 
 = 1.21 = 2026-06-09
 * **New:** Default model is now **GPT-5.4 nano** (fastest & cheapest, vision-capable), with **GPT-5.4 mini** for higher quality. Existing installs keep their current model; legacy GPT-4o mini and GPT-5 mini/nano remain available.

@@ -8,8 +8,8 @@ Automatically generates alt text and image titles for uploaded images in WordPre
 
 **Plugin Name:** AI Auto Alt Text Generator   
 **Author:** [Connor Bulmer](https://connorbulmer.co.uk)   
-**Version:** 1.21
-**Stable tag:** 1.21
+**Version:** 1.22
+**Stable tag:** 1.22
 **Tested up to:** WordPress 7.0   
 **Requires at least:** WordPress 5.5   
 **License:** GPL v3 or later   
@@ -85,6 +85,9 @@ The response is used to fill the image’s `alt` attribute and (optionally) its 
 ---
 
 ## 📦 Changelog
+
+## 1.22 2026-06-10
+- 🛡️ Skip unsupported image formats (SVG, BMP, TIFF, AVIF, HEIC, …) before sending to OpenAI — avoids failed HTTP 400 requests and error-log spam; only PNG, JPEG, GIF and WebP are sent. New `aatg_supported_image_extensions` filter
 
 ## 1.21 2026-06-09
 - 🚀 New default model: GPT-5.4 nano (fastest & cheapest, vision-capable); GPT-5.4 mini available for higher quality. Existing installs keep their current model; legacy GPT-4o mini and GPT-5 models remain selectable
